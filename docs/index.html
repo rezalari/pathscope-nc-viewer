@@ -1,0 +1,1838 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; worker-src blob:; style-src 'unsafe-inline'; img-src data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta name="color-scheme" content="dark"><title>Pathscope NC Viewer</title><meta name="description" content="Free 3D G-code viewer. Open an NC file on your device, preview toolpaths and scrub through the remaining stock.">
+<style>
+:root{--bg:#0d1419;--panel:#152027;--canvas:#11191f;--border:#324047;--text:#f1f4ef;--muted:#a6b4b6;--accent:#b9e49c;--mono:"Cascadia Mono","SFMono-Regular",Consolas,monospace;font-family:"Inter","Segoe UI",system-ui,sans-serif;color:var(--text);background:var(--bg);font-size:14px}*{box-sizing:border-box}body{margin:0}button,select,input{font:inherit}button,select{cursor:pointer}button{display:inline-flex;align-items:center;justify-content:center;gap:7px;background:transparent;border:1px solid var(--border);color:var(--text);border-radius:5px;padding:7px 10px}button:hover,select:hover{background-color:#26343a}button:disabled{opacity:.4;cursor:default}button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}button.primary{color:#18251a;background:var(--accent);border-color:var(--accent);font-weight:650}button.primary:hover{background:#caeeb2}button.on{background:#39494d;color:white;border-color:transparent}button.flat{border-color:transparent;color:var(--muted)}button.flat:hover{color:white}button.ico{width:34px;height:32px;padding:0}button svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.65;stroke-linecap:round;stroke-linejoin:round}input,select{color:var(--text);border:1px solid var(--border);border-radius:4px;background:#10191f;padding:7px}input[type=number]{width:100%;font:12px var(--mono)}input[type=range]{accent-color:var(--accent)}.app{display:flex;flex-direction:column;min-height:680px;height:100dvh}.header{height:64px;flex:none;display:flex;align-items:center;gap:15px;padding:0 20px;border-bottom:1px solid var(--border);background:#152027}.brand{display:flex;align-items:center;gap:9px;font-size:23px;letter-spacing:-1.2px;font-weight:650}.brand svg{width:30px;height:31px}.divider{width:1px;height:22px;background:var(--border)}.filename{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:12px var(--mono);color:#c2cdca}.header-actions{margin-left:auto;display:flex;gap:8px;flex-shrink:0}.work{min-height:0;flex:1;display:grid;grid-template-columns:minmax(0,1fr) 320px}.center{display:grid;min-height:0;min-width:0;grid-template-rows:minmax(250px,1fr) auto}.viewport{min-height:0;position:relative;isolation:isolate;background:var(--canvas);overflow:hidden}.surface{position:absolute;inset:0;touch-action:none}.surface canvas{display:block}.viewtop{pointer-events:none;position:absolute;top:17px;left:17px;right:17px;display:flex;align-items:flex-start;justify-content:space-between;gap:8px}.viewtop>div{pointer-events:auto}.hud{display:flex;align-items:center;gap:4px;background:#162228ed;border:1px solid #35454b;border-radius:6px;padding:3px}.hud button{font-size:12px;border-color:transparent;padding:5px 8px}.hud .depth{border-left:1px solid var(--border);border-radius:0 4px 4px 0}.corner-tools{display:flex;gap:3px;align-items:center;background:#162228ed;border:1px solid var(--border);border-radius:6px;padding:3px}.corner-tools select{border:0;background:transparent;padding:4px;max-width:99px;font-size:12px}.corner-tools button{border:0;width:25px;height:25px}.viewportfooter{position:absolute;bottom:10px;left:15px;display:flex;align-items:center;gap:7px;pointer-events:none}.tag{display:inline-flex;align-items:center;gap:7px;background:#142026e8;border:1px solid #37454a;padding:5px 8px;border-radius:4px;color:#c1cdcc;font:11px var(--mono)}.dot{height:8px;width:8px;border-radius:50%;display:inline-block;background:#96a3ac;flex:none}.dragmask{display:none;position:absolute;inset:10px;z-index:7;background:#14241eeb;border:2px dashed var(--accent);border-radius:8px;align-items:center;justify-content:center;font-weight:600;font-size:22px;pointer-events:none}.dragover .dragmask{display:flex}.busy{position:absolute;z-index:6;inset:0;display:grid;place-items:center;background:#121a20e3;color:#d4dfda}.busy>span{background:#1d2b31;border:1px solid var(--border);padding:13px 18px;border-radius:6px;max-width:90%}.busy[hidden],[hidden]{display:none!important}.sim{background:#172229;border-top:1px solid var(--border);padding:15px 19px 16px}.simrow{display:flex;align-items:center;gap:9px}.simrow h2{font-size:15px;margin:0;font-weight:600}.simrow .time{margin-left:auto}.time{font:12px var(--mono);color:#d6dfdd;white-space:nowrap}.time small{color:var(--muted);font:inherit}.scrubber{margin:14px 0 6px;position:relative;padding:1px 0}.rail{position:absolute;left:1px;right:1px;height:5px;top:8px;background:#415052;border-radius:3px;overflow:hidden}.rail::before{content:'';position:absolute;inset:0 auto 0 0;width:var(--done,0%);background:var(--accent)}.rail i{position:absolute;top:0;width:2px;height:5px;background:#152027}.scrubber input{appearance:none;background:transparent;margin:0;padding:0;display:block;width:100%;height:18px;border:0;position:relative}.scrubber input::-webkit-slider-thumb{appearance:none;width:11px;height:15px;border-radius:3px;background:#d3edbd;box-shadow:0 0 0 2px #21352b}.scrubber input::-moz-range-thumb{width:10px;height:14px;border:0;border-radius:3px;background:var(--accent)}.transports{display:flex;gap:6px;align-items:center;flex-wrap:wrap}.transports select{font-size:12px;height:31px;padding:4px 5px}.lineinfo{margin-left:auto;color:var(--muted);font:11px var(--mono);white-space:nowrap}.usage{color:var(--muted);font-size:11px}.side{min-height:0;border-left:1px solid var(--border);background:var(--panel);display:flex;flex-direction:column}.side-nav{height:52px;display:flex;gap:17px;align-items:stretch;padding:0 18px;border-bottom:1px solid var(--border);flex-shrink:0}.side-nav button{border:0;border-bottom:2px solid transparent;border-radius:0;font-weight:600;padding:0 2px;color:var(--muted);background:transparent}.side-nav button.on{border-color:var(--accent);color:#f1f5ef}.sidebody{padding:15px 17px 24px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:#46545c transparent}.group+.group{border-top:1px solid var(--border);padding-top:16px;margin-top:16px}.group h2,.group summary{margin:0 0 11px;font-size:14px;font-weight:620;letter-spacing:.05px}.group summary{cursor:pointer}.group summary::marker{color:var(--muted)}.ops{display:grid;gap:4px}.op{display:grid;grid-template-columns:8px minmax(0,1fr) auto;border:1px solid transparent;border-radius:4px;padding:6px 7px;gap:9px;text-align:left;width:100%;align-items:center;color:#c8d4d3}.op.active{background:#283a3e;border-color:#3a5054;color:white}.op span:nth-child(2){white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.op small{font:10px var(--mono);color:var(--muted)}.compact{display:flex;align-items:center;gap:6px}.compact select{min-width:0;width:100%;font-size:12px}.jump{margin-top:9px;display:flex;gap:5px;flex-wrap:wrap}.jump button{font-size:11px;padding:4px 6px}.readout{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.readout div{border:1px solid var(--border);border-radius:4px;padding:6px 8px;background:#111b21}.readout span{display:block;color:var(--muted);font:10px var(--mono);margin-bottom:4px}.readout strong{font:13px var(--mono)}.detail{margin:8px 0 0;color:#b3c0c0;font-size:12px;line-height:1.5}.linecode{background:#10191f;border:1px solid var(--border);padding:8px;border-radius:4px;margin-top:8px;font:11px/1.65 var(--mono);overflow:auto;white-space:pre;color:#a8b7b9}.linecode .now{color:#d2efa9}.sectionhead{display:flex;justify-content:space-between;align-items:baseline;gap:8px}.sectionhead small{font:10px var(--mono);color:var(--muted)}.fields{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.fields label,.rowlabel{color:var(--muted);font-size:11px}.fields label input{margin-top:4px}.tool-field{display:grid;align-items:center;gap:7px;grid-template-columns:32px minmax(0,1fr) 65px;font-size:12px;margin:5px 0}.tool-field select{min-width:0;font-size:12px;padding:5px}.tool-field input{padding:5px}.fl{display:flex;align-items:center;gap:4px}.fl b{font:12px var(--mono)}.flags{display:grid;grid-template-columns:1fr 1fr;gap:7px}.flags label{display:flex;align-items:center;gap:5px;color:#ced8d5;font-size:12px}.flags input{accent-color:var(--accent)}.setupapply{margin-top:9px;width:100%}.warn{margin:0 0 12px;background:#3b3023;border-left:3px solid #eab36c;color:#efddbd;padding:8px 10px;border-radius:3px;font-size:12px;line-height:1.45}.warn summary{cursor:pointer;font-weight:600}.warn ul{margin:6px 0 0;padding-left:15px;max-height:100px;overflow:auto}.footer-line{margin-top:8px;display:flex;gap:8px;align-items:center;color:var(--muted);font:11px var(--mono)}.toolbar-caption{font:10px var(--mono);color:var(--muted)}#tool-key{display:flex;flex-wrap:wrap;gap:8px}.keyitem{display:flex;align-items:center;gap:5px;color:#c1cecc;font:10px var(--mono)}dialog{background:#17232a;color:var(--text);border:1px solid var(--border);border-radius:8px;padding:20px;max-width:440px}dialog::backdrop{background:#05090caa}dialog h2{font-size:18px;margin:0 0 10px}dialog p{line-height:1.5;color:#bfccca}.muted{color:var(--muted)}
+@media(min-width:1450px){.work{grid-template-columns:minmax(0,1fr) 355px}.sidebody{padding:19px 21px}.op{padding:8px 9px}}
+@media(max-width:930px){.work{grid-template-columns:minmax(0,1fr) 277px}.sidebody{padding:13px 12px}.header{padding:0 12px}.viewportfooter{left:8px}.viewtop{top:8px;left:8px;right:8px}.hud button{padding:5px}.usage{display:none}.lineinfo{font-size:10px}}
+@media(max-width:730px){.app{min-height:100dvh;height:auto}.header{height:54px;gap:7px}.brand{font-size:20px}.filename,.header>.divider{display:none}.header-actions{gap:5px}.work{display:flex;flex-direction:column}.center{height:65dvh;min-height:405px}.side{border-left:0;border-top:1px solid var(--border)}.sidebody{max-height:none}.side-nav{height:41px}.sim{padding:10px}.viewtop{align-items:flex-start}.corner-tools select{width:71px}.op{padding:5px}.sidebody{padding:13px 15px}.viewportfooter .tag{font-size:10px}.lineinfo{display:none}}
+#to-finished{height:31px;font-size:12px;padding:4px 9px}
+#solid-fallback{white-space:normal;max-width:calc(100vw - 40px)}
+.hud [data-view=solid].on{background:#513a2e;border-color:#936b50;color:#ffe0c8}
+#path-angle{max-width:76px}
+@media(max-width:780px){.viewtop{flex-wrap:wrap}.corner-tools{margin-left:auto}}
+.brand-sub{display:block;letter-spacing:.045em;font-size:10px;line-height:1.25;color:var(--muted);font-weight:550}.local-note{margin:0 0 14px;color:var(--muted);font-size:11px}#configure-tools{display:block;width:100%;margin-bottom:14px;font-size:12px;border-color:#61835c;color:#cfeabf}
+</style></head>
+<body><main class="app"><header class="header"><div class="brand"><svg viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M2 9.5 16 2l14 7.5L16 17 2 9.5Z" stroke="#b9e49c" stroke-width="2"/><path d="m3 16 13 7 13-7M3 22.5 16 30l13-7.5" stroke="#b9e49c" stroke-width="2"/></svg><span>Pathscope<small class="brand-sub">NC Viewer</small></span></div><div class="divider"></div><div class="filename" id="filename" title="Current NC file">NC viewer</div><div class="header-actions"><button id="demo-btn" class="flat">Load demo</button><button id="open-btn" class="primary"><svg viewBox="0 0 24 24"><path d="M3 17V6h7l2 2h8v3M3 18l3-7h15l-3 8H3z"/></svg>Open NC file</button></div><input type="file" id="file" accept=".nc,.cnc,.gcode,.gc,.tap,.ngc,.txt,.ncc,.iso,.gco,*/*" hidden></header>
+<section class="work"><div class="center"><div class="viewport" id="viewport"><div id="solid-surface" class="surface" aria-label="Rotatable 3D remaining stock"></div><div id="path-surface" class="surface" aria-label="Interactive toolpath" hidden></div><div id="depth-surface" class="surface" aria-label="Simulated cut depths" hidden></div>
+<div class="viewtop"><div class="hud" role="group" aria-label="View"><button class="on" data-view="solid" title="Rotate and inspect the remaining stock">Solid</button><button data-view="path" title="See programmed motion and entry points">Toolpaths</button><button data-view="depth" title="See remaining material by cut depth from above">Cut depth</button></div><div class="corner-tools"><select id="path-angle" aria-label="Toolpath viewing angle" hidden><option value="iso">3D orbit</option><option value="top">Top</option><option value="front">Front</option></select><button id="zoom-out" class="ico" aria-label="Zoom out">−</button><button id="zoom-in" class="ico" aria-label="Zoom in">+</button><select id="fit" title="Fit view or stock" aria-label="Fit viewport"><option value="">Fit view</option><option value="path">Fit cut area</option><option value="stock">Fit stock</option></select></div></div>
+<div class="viewportfooter"><span class="tag" id="solid-fallback" hidden>3D rendering is unavailable. Showing the cut-depth map.</span><span class="tag" id="view-tag" hidden><i class="dot" id="tool-dot"></i><span id="view-state">Work coordinates · mm</span></span></div><div id="busy" class="busy" role="status"><span>Opening the example program…</span></div><div class="dragmask">Drop an NC file</div></div>
+<div class="sim"><div class="simrow"><h2>Simulation</h2><span class="time"><span id="elapsed">00:00</span> <small>/ <span id="duration">00:00</span></small></span></div><div class="scrubber"><div id="rail" class="rail"></div><input type="range" id="progress" min="0" max="1000000" step="1" value="0" aria-label="Simulation progress"></div><div class="transports"><button class="ico" id="prev-step" aria-label="Previous motion" title="Previous motion"><svg viewBox="0 0 24 24"><path d="M6 5v14m12-13-9 6 9 6z"/></svg></button><button class="primary" id="play" aria-label="Play simulation"><span id="play-icon">▶</span><span id="play-text">Play</span></button><button class="ico" id="next-step" aria-label="Next motion" title="Next motion"><svg viewBox="0 0 24 24"><path d="M18 5v14M6 6l9 6-9 6z"/></svg></button><select id="speed" aria-label="Playback speed" title="Playback speed"><option value="1">1×</option><option value="10">10×</option><option value="60" selected>60×</option><option value="300">300×</option><option value="1000">1000×</option></select><button id="to-finished" title="Show the solid material left at the end of the program">Finished part</button><span class="lineinfo" id="lineinfo"></span></div></div></div>
+<aside class="side"><nav class="side-nav"><button id="job-tab" class="on">Job</button><button id="setup-tab">Setup</button></nav><div class="sidebody"><p class="local-note">Your NC files stay in your browser.</p>
+<details id="warnings" class="warn" hidden><summary id="warning-title"></summary><ul id="warning-items"></ul></details>
+<div id="job-panel"><button id="configure-tools" hidden>Set cutter sizes for solid preview</button><section class="group"><div class="sectionhead"><h2>Operations</h2><small id="op-count"></small></div><div class="ops" id="operations"></div></section>
+<section class="group"><h2>Jump to move</h2><div class="compact"><select id="stage-select" aria-label="Select individual program stage"></select></div><div class="compact" id="hole-block" style="margin-top:6px"><select id="hole-select" aria-label="Select individual hole"></select></div><div class="jump"><button id="to-stage-end" title="Show the solid material left after the selected stage">After stage</button><button id="to-entry" title="Go to the endpoint of the first spindle-on feed starting into the job">First feed</button><button id="to-contact" title="First estimated tool contact with the configured stock">Stock contact</button></div></section>
+<section class="group"><div class="sectionhead"><h2>Tool position</h2><small>mm</small></div><div class="readout"><div><span>X</span><strong id="px">—</strong></div><div><span>Y</span><strong id="py">—</strong></div><div><span>Z</span><strong id="pz">—</strong></div></div><div class="footer-line" id="motion-data"></div><div class="linecode" id="linecode" aria-label="NC source at current tool position"></div></section>
+<section class="group"><h2>Path colors</h2><div id="tool-key"></div><p class="detail" id="job-note">Time estimates include feed moves and modeled rapids.</p></section></div>
+<div id="setup-panel" hidden><section class="group"><h2>Stock dimensions</h2><div class="fields" id="stock-size"></div><h2 style="margin-top:16px">Stock lower corner</h2><div class="fields" id="stock-pos"></div><p class="detail" id="stock-hint"></p></section><section class="group"><div class="sectionhead"><h2>Cutters</h2><small>Ø mm</small></div><div id="tool-fields"></div><button class="setupapply" id="apply">Apply stock &amp; tools</button><p class="detail" id="setup-msg" aria-live="polite"></p></section>
+<section class="group"><h2>Path display</h2><div class="flags" id="flags"></div></section>
+<section class="group"><h2>Viewer limits</h2><p class="detail">Solid and cut-depth views model the material left by top-down machining. Surfaces are sampled on a grid. Side undercuts and loose piece movement are outside the model. Workholding, tool changes, probe motion and machine limits require a separate check. Estimated times depend on feed and rapid rates.</p><p class="detail" id="parser-notes"></p></section></div>
+</div></aside></section></main><dialog id="msg"><h2 id="msgtitle">NC viewer</h2><p id="msgtext"></p><button id="close-msg" class="primary">Close</button></dialog>
+<script type="application/octet-stream" id="demo">KEFyYyBwb2NrZXQgcGxhdGUpCihJbGx1c3RyYXRpdmUgdG9vbHBhdGhzIGZvciBzaW11bGF0aW9uLiBObyBtYWNoaW5lIG9yIGZpeHR1cmUgc2V0dXAgaXMgc3BlY2lmaWVkLikKKFNUT0NLIFgwLi43MiBZMC4uNDggWi05Li4wIG1tKQooVE9PTCBUMSBENiBGTEFUKQooVE9PTCBUMiBEMyBGTEFUKQooVE9PTCBUMyBENCBEUklMTCkKRzIxIEcxNyBHOTAgRzk0Ckc1NAooT3BlcmF0aW9uOiBGYWNlIHRoZSBwbGF0ZSkKVDEgTTYKRzAgWjUKRzAgWC0zLjEgWTAKTTMgUzEwMDAwCkcwIFoxCkcxIFotMC40IEYyMDAKRzEgWDc1LjEgRjc0MApHMSBZNApHMSBYLTMuMQpHMSBZOApHMSBYNzUuMQpHMSBZMTIKRzEgWC0zLjEKRzEgWTE2CkcxIFg3NS4xCkcxIFkyMApHMSBYLTMuMQpHMSBZMjQKRzEgWDc1LjEKRzEgWTI4CkcxIFgtMy4xCkcxIFkzMgpHMSBYNzUuMQpHMSBZMzYKRzEgWC0zLjEKRzEgWTQwCkcxIFg3NS4xCkcxIFk0NApHMSBYLTMuMQpHMSBZNDgKRzEgWDc1LjEKRzAgWjQKKE9wZXJhdGlvbjogTWlsbCB0aGUgb3ZhbCBiYXNpbikKRzAgWDI1IFkyNApHMCBaMC42CkcxIFotMC40IEYxODAKRzEgWDQ3IFkyNCBaLTEuMyBGMzIwCkcxIFgyNSBGNjAwCkcxIFkyMC44CkcxIFg0NyBZMjAuOCBGNjAwCkczIFg0NyBZMjcuMiBJMCBKMy4yCkcxIFgyNQpHMyBYMjUgWTIwLjggSTAgSi0zLjIKRzEgWTE3LjYKRzEgWDQ3IFkxNy42IEY2MDAKRzMgWDQ3IFkzMC40IEkwIEo2LjQKRzEgWDI1CkczIFgyNSBZMTcuNiBJMCBKLTYuNApHMSBZMTQuNApHMSBYNDcgWTE0LjQgRjYwMApHMyBYNDcgWTMzLjYgSTAgSjkuNgpHMSBYMjUKRzMgWDI1IFkxNC40IEkwIEotOS42CkcxIFkxMS40CkcxIFg0NyBZMTEuNCBGNjAwCkczIFg0NyBZMzYuNiBJMCBKMTIuNgpHMSBYMjUKRzMgWDI1IFkxMS40IEkwIEotMTIuNgpHMSBZMjQKRzEgWDQ3IFkyNCBaLTIuMiBGMzIwCkcxIFgyNSBGNjAwCkcxIFkyMC44CkcxIFg0NyBZMjAuOCBGNjAwCkczIFg0NyBZMjcuMiBJMCBKMy4yCkcxIFgyNQpHMyBYMjUgWTIwLjggSTAgSi0zLjIKRzEgWTE3LjYKRzEgWDQ3IFkxNy42IEY2MDAKRzMgWDQ3IFkzMC40IEkwIEo2LjQKRzEgWDI1CkczIFgyNSBZMTcuNiBJMCBKLTYuNApHMSBZMTQuNApHMSBYNDcgWTE0LjQgRjYwMApHMyBYNDcgWTMzLjYgSTAgSjkuNgpHMSBYMjUKRzMgWDI1IFkxNC40IEkwIEotOS42CkcxIFkxMS40CkcxIFg0NyBZMTEuNCBGNjAwCkczIFg0NyBZMzYuNiBJMCBKMTIuNgpHMSBYMjUKRzMgWDI1IFkxMS40IEkwIEotMTIuNgpHMSBZMjQKRzEgWDQ3IFkyNCBaLTMgRjMyMApHMSBYMjUgRjYwMApHMSBZMjAuOApHMSBYNDcgWTIwLjggRjYwMApHMyBYNDcgWTI3LjIgSTAgSjMuMgpHMSBYMjUKRzMgWDI1IFkyMC44IEkwIEotMy4yCkcxIFkxNy42CkcxIFg0NyBZMTcuNiBGNjAwCkczIFg0NyBZMzAuNCBJMCBKNi40CkcxIFgyNQpHMyBYMjUgWTE3LjYgSTAgSi02LjQKRzEgWTE0LjQKRzEgWDQ3IFkxNC40IEY2MDAKRzMgWDQ3IFkzMy42IEkwIEo5LjYKRzEgWDI1CkczIFgyNSBZMTQuNCBJMCBKLTkuNgpHMSBZMTEuNApHMSBYNDcgWTExLjQgRjYwMApHMyBYNDcgWTM2LjYgSTAgSjEyLjYKRzEgWDI1CkczIFgyNSBZMTEuNCBJMCBKLTEyLjYKRzEgWTI0CkcwIFo1Ck01CihPcGVyYXRpb246IEN1dCB0aGUgcmluZyBjaGFubmVscykKVDIgTTYKTTMgUzEyMDAwCkcwIFgyNSBZMTkuMzUKRzAgWjAuOApHMSBaLTMgRjE4MApHMSBYNDcgWi00IEYyODAKRzEgWDI1IEY0OTAKRzEgWDQ3IFkxOS4zNSBGNDkwCkczIFg0NyBZMjguNjUgSTAgSjQuNjUKRzEgWDI1CkczIFgyNSBZMTkuMzUgSTAgSi00LjY1CkcxIFkxOC4yNQpHMSBYNDcgWTE4LjI1IEY0OTAKRzMgWDQ3IFkyOS43NSBJMCBKNS43NQpHMSBYMjUKRzMgWDI1IFkxOC4yNSBJMCBKLTUuNzUKRzEgWTE5LjM1CkcxIFg0NyBaLTUgRjI4MApHMSBYMjUgRjQ5MApHMSBYNDcgWTE5LjM1IEY0OTAKRzMgWDQ3IFkyOC42NSBJMCBKNC42NQpHMSBYMjUKRzMgWDI1IFkxOS4zNSBJMCBKLTQuNjUKRzEgWTE4LjI1CkcxIFg0NyBZMTguMjUgRjQ5MApHMyBYNDcgWTI5Ljc1IEkwIEo1Ljc1CkcxIFgyNQpHMyBYMjUgWTE4LjI1IEkwIEotNS43NQpHMSBZMTkuMzUKRzEgWDQ3IFotNiBGMjgwCkcxIFgyNSBGNDkwCkcxIFg0NyBZMTkuMzUgRjQ5MApHMyBYNDcgWTI4LjY1IEkwIEo0LjY1CkcxIFgyNQpHMyBYMjUgWTE5LjM1IEkwIEotNC42NQpHMSBZMTguMjUKRzEgWDQ3IFkxOC4yNSBGNDkwCkczIFg0NyBZMjkuNzUgSTAgSjUuNzUKRzEgWDI1CkczIFgyNSBZMTguMjUgSTAgSi01Ljc1CkcxIFkxOS4zNQpHMSBYNDcgWi03IEYyODAKRzEgWDI1IEY0OTAKRzEgWDQ3IFkxOS4zNSBGNDkwCkczIFg0NyBZMjguNjUgSTAgSjQuNjUKRzEgWDI1CkczIFgyNSBZMTkuMzUgSTAgSi00LjY1CkcxIFkxOC4yNQpHMSBYNDcgWTE4LjI1IEY0OTAKRzMgWDQ3IFkyOS43NSBJMCBKNS43NQpHMSBYMjUKRzMgWDI1IFkxOC4yNSBJMCBKLTUuNzUKRzEgWTE5LjM1CkcwIFo1CkcwIFgyNSBZMTMuMDUKRzAgWjAuOApHMSBaLTMgRjE4MApHMSBYNDcgWi00IEYyODAKRzEgWDI1IEY0OTAKRzEgWDQ3IFkxMy4wNSBGNDkwCkczIFg0NyBZMzQuOTUgSTAgSjEwLjk1CkcxIFgyNQpHMyBYMjUgWTEzLjA1IEkwIEotMTAuOTUKRzEgWTExLjk1CkcxIFg0NyBZMTEuOTUgRjQ5MApHMyBYNDcgWTM2LjA1IEkwIEoxMi4wNQpHMSBYMjUKRzMgWDI1IFkxMS45NSBJMCBKLTEyLjA1CkcxIFkxMy4wNQpHMSBYNDcgWi01IEYyODAKRzEgWDI1IEY0OTAKRzEgWDQ3IFkxMy4wNSBGNDkwCkczIFg0NyBZMzQuOTUgSTAgSjEwLjk1CkcxIFgyNQpHMyBYMjUgWTEzLjA1IEkwIEotMTAuOTUKRzEgWTExLjk1CkcxIFg0NyBZMTEuOTUgRjQ5MApHMyBYNDcgWTM2LjA1IEkwIEoxMi4wNQpHMSBYMjUKRzMgWDI1IFkxMS45NSBJMCBKLTEyLjA1CkcxIFkxMy4wNQpHMSBYNDcgWi02IEYyODAKRzEgWDI1IEY0OTAKRzEgWDQ3IFkxMy4wNSBGNDkwCkczIFg0NyBZMzQuOTUgSTAgSjEwLjk1CkcxIFgyNQpHMyBYMjUgWTEzLjA1IEkwIEotMTAuOTUKRzEgWTExLjk1CkcxIFg0NyBZMTEuOTUgRjQ5MApHMyBYNDcgWTM2LjA1IEkwIEoxMi4wNQpHMSBYMjUKRzMgWDI1IFkxMS45NSBJMCBKLTEyLjA1CkcxIFkxMy4wNQpHMSBYNDcgWi03IEYyODAKRzEgWDI1IEY0OTAKRzEgWDQ3IFkxMy4wNSBGNDkwCkczIFg0NyBZMzQuOTUgSTAgSjEwLjk1CkcxIFgyNQpHMyBYMjUgWTEzLjA1IEkwIEotMTAuOTUKRzEgWTExLjk1CkcxIFg0NyBZMTEuOTUgRjQ5MApHMyBYNDcgWTM2LjA1IEkwIEoxMi4wNQpHMSBYMjUKRzMgWDI1IFkxMS45NSBJMCBKLTEyLjA1CkcxIFkxMy4wNQpHMCBaNQpNNQooT3BlcmF0aW9uOiBEcmlsbCB0aGUgbW91bnRpbmcgaG9sZXMpClQzIE02Ck0zIFM0NTAwCihIb2xlIDEpCkcwIFg4IFk4CkcwIFoxCkcxIFotMiBGMTgwCkcwIFoxCkcwIFotMS41CkcxIFotNCBGMTgwCkcwIFoxCkcwIFotMy41CkcxIFotNiBGMTgwCkcwIFoxCkcwIFotNS41CkcxIFotOCBGMTgwCkcwIFoxCkcwIFotNy41CkcxIFotMTAuNCBGMTgwCkcwIFoxCkcwIFo1CihIb2xlIDIpCkcwIFg2NCBZOApHMCBaMQpHMSBaLTIgRjE4MApHMCBaMQpHMCBaLTEuNQpHMSBaLTQgRjE4MApHMCBaMQpHMCBaLTMuNQpHMSBaLTYgRjE4MApHMCBaMQpHMCBaLTUuNQpHMSBaLTggRjE4MApHMCBaMQpHMCBaLTcuNQpHMSBaLTEwLjQgRjE4MApHMCBaMQpHMCBaNQooSG9sZSAzKQpHMCBYNjQgWTQwCkcwIFoxCkcxIFotMiBGMTgwCkcwIFoxCkcwIFotMS41CkcxIFotNCBGMTgwCkcwIFoxCkcwIFotMy41CkcxIFotNiBGMTgwCkcwIFoxCkcwIFotNS41CkcxIFotOCBGMTgwCkcwIFoxCkcwIFotNy41CkcxIFotMTAuNCBGMTgwCkcwIFoxCkcwIFo1CihIb2xlIDQpCkcwIFg4IFk0MApHMCBaMQpHMSBaLTIgRjE4MApHMCBaMQpHMCBaLTEuNQpHMSBaLTQgRjE4MApHMCBaMQpHMCBaLTMuNQpHMSBaLTYgRjE4MApHMCBaMQpHMCBaLTUuNQpHMSBaLTggRjE4MApHMCBaMQpHMCBaLTcuNQpHMSBaLTEwLjQgRjE4MApHMCBaMQpHMCBaNQpNNQpNMzAK</script>
+<script>/* Offline work-coordinate NC interpreter. No machine connection or file execution. */
+(function () {
+  'use strict';
+
+  const axisKeys = ['X', 'Y', 'Z'];
+  const centerKeys = ['I', 'J', 'K'];
+  const planes = {17: [0, 1, 2], 18: [2, 0, 1], 19: [1, 2, 0]};
+  const tau = Math.PI * 2;
+  function signedSweep(start, end, clockwise, fullCircle) {
+    if (fullCircle) return clockwise ? -tau : tau;
+    let a = (end - start) % tau;
+    if (clockwise && a > 0) a -= tau;
+    if (!clockwise && a < 0) a += tau;
+    return a;
+  }
+
+  // Arrays grow only when the estimated input line count is exceeded (primarily arcs).
+  function parseNC(source, options = {}) {
+    if (!source.includes('\n') && source.includes('\r')) source = source.replaceAll('\r','\n');
+    const rapidFeed = options.rapidFeed > 0 ? Number(options.rapidFeed) : 1800;
+    const defaultFeed = options.defaultFeed > 0 ? Number(options.defaultFeed) : 200;
+    const carvera = /\bcarvera\b/i.test(source.slice(0,1600));
+    const dwellP = options.dwellPSeconds ?? (carvera ? 0.001 : 1);
+    let capacity = Math.max(512, Math.min(1000000, Math.ceil(source.length / 19)));
+    const types = {xyz: Float32Array, kind: Uint8Array, tool: Uint16Array, line: Uint32Array,
+                   feed: Float32Array, spindle: Uint8Array, endTime: Float64Array};
+    const out = {};
+    for (const k in types) out[k] = new types[k](capacity * (k === 'xyz' ? 6 : 1));
+    let count = 0, duration = 0, firstFeedIndex = -1, ln = 0;
+    const stages = [], holes = [], warnings = [], notes = [], reported = new Set(), usedTools = new Set();
+    const bounds = {min: [Infinity,Infinity,Infinity], max: [-Infinity,-Infinity,-Infinity]};
+    let p = [NaN,NaN,NaN], unit = 1, mode = null, plane = 17, absolute = true, absCenter = false;
+    let pendingTool = 0, activeTool = 0, spindleOn = 0, feedRate = NaN, wcs = null, cycle = null, returnInitial = true;
+    let pendingStage = null, pendingHole = null, stopped = false, omittedStart = false, implicitRange = false;
+
+    function warn(key, message) {
+      if (reported.has(key)) return;
+      reported.add(key);
+      if (warnings.length < 30) warnings.push('Line ' + ln + ': ' + message);
+    }
+    function stop(reason) {
+      warn('stopped', reason + '. Preview ends before this block.');
+      stopped = true;
+    }
+    function append(to, kind, rate, seconds) {
+      if (!p.every(Number.isFinite) || !to.every(Number.isFinite)) {
+        if (kind !== 2) omittedStart = true;
+        p = to;
+        return;
+      }
+      if (kind !== 2 && to[0] === p[0] && to[1] === p[1] && to[2] === p[2]) return;
+      let dt = seconds;
+      if (kind !== 2) {
+        if (!(rate > 0)) {
+          rate = defaultFeed;
+          warn('missing-feed', 'Estimated feed time uses ' + defaultFeed + ' mm/min until an F word is available.');
+        }
+        dt = 60 * Math.hypot(to[0]-p[0], to[1]-p[1], to[2]-p[2]) / rate;
+      }
+      if (kind === 2 && !(dt > 0)) return;
+      if (count === capacity) {
+        capacity = Math.ceil(capacity * 1.45);
+        for (const k in types) {
+          const arr = new types[k](capacity * (k === 'xyz' ? 6 : 1));
+          arr.set(out[k]); out[k] = arr;
+        }
+      }
+      if (pendingStage || !stages.length) {
+        stages.push({name: pendingStage || (activeTool ? 'Tool T' + activeTool : 'Program'), index:count, time:duration, tool:activeTool});
+        pendingStage = null;
+      }
+      if (pendingHole) {
+        const marker = typeof pendingHole === 'string' ? {name:pendingHole,x:to[0],y:to[1]} : pendingHole;
+        holes.push({...marker, index:count, time:duration});
+        pendingHole = null;
+      }
+      for (let i=0; i<3; i++) {
+        out.xyz[count*6+i] = p[i]; out.xyz[count*6+3+i] = to[i];
+        bounds.min[i] = Math.min(bounds.min[i], p[i], to[i]);
+        bounds.max[i] = Math.max(bounds.max[i], p[i], to[i]);
+      }
+      if (firstFeedIndex === -1 && kind === 1) firstFeedIndex = count;
+      duration += dt;
+      out.kind[count]=kind; out.tool[count]=activeTool; out.line[count]=ln; out.feed[count]=rate || 0;
+      out.spindle[count]=spindleOn; out.endTime[count]=duration; count++;
+      if (activeTool || (kind===1 && spindleOn)) usedTools.add(activeTool);
+      p = to;
+    }
+
+    function arc(end, values) {
+      const [u,v,w] = planes[plane], start = p.slice(), cw = mode === 2;
+      if (!start.every(Number.isFinite)) { stop('Arc begins at an unknown position'); return; }
+      const dx=end[u]-start[u], dy=end[v]-start[v], chord=Math.hypot(dx,dy), full=chord<1e-7;
+      let cu,cv;
+      if (values.R !== undefined) {
+        if (values[centerKeys[u]] !== undefined || values[centerKeys[v]] !== undefined) { stop('Arc specifies both R and center offsets'); return; }
+        const radius = Math.abs(values.R)*unit;
+        if (full || !radius || chord>2*radius+.002) { stop('Invalid R arc'); return; }
+        const side=(cw?-1:1)*(values.R<0?-1:1);
+        const height=Math.sqrt(Math.max(0,radius*radius-chord*chord/4))*side;
+        cu=(start[u]+end[u])/2-dy/chord*height;
+        cv=(start[v]+end[v])/2+dx/chord*height;
+      } else {
+        const iu=values[centerKeys[u]],iv=values[centerKeys[v]];
+        if ((iu===undefined&&iv===undefined) || (absCenter&&(iu===undefined||iv===undefined))) {
+          stop('Missing arc center in the selected plane'); return;
+        }
+        cu=(absCenter?0:start[u])+(iu||0)*unit;
+        cv=(absCenter?0:start[v])+(iv||0)*unit;
+      }
+      const radius=Math.hypot(start[u]-cu,start[v]-cv);
+      if (!(radius>0) || Math.abs(radius-Math.hypot(end[u]-cu,end[v]-cv))>Math.max(.02,radius*.001)) {
+        stop('Arc endpoints disagree with the specified center');return;
+      }
+      const a0=Math.atan2(start[v]-cv,start[u]-cu), a1=Math.atan2(end[v]-cv,end[u]-cu);
+      let sweep=signedSweep(a0,a1,cw,full);
+      const turns=values.P ?? 1;
+      if (!Number.isInteger(turns)||turns<1||turns>256) { stop('Unsupported arc turn count'); return; }
+      sweep+=(cw?-1:1)*tau*(turns-1);
+      const maxAngle=Math.min(Math.PI/18,2*Math.acos(Math.max(-1,1-.01/radius)));
+      const pieces=Math.ceil(Math.abs(sweep)/Math.max(maxAngle,1e-6));
+      if (pieces>100000 || count+pieces>15000000) { stop('Arc subdivision exceeds preview size'); return; }
+      for (let j=1;j<=pieces;j++) {
+        if (j===pieces) {append(end,1,feedRate);break;}
+        const t=j/pieces, a=a0+sweep*t, vtx=[0,0,0];
+        vtx[u]=cu+radius*Math.cos(a); vtx[v]=cv+radius*Math.sin(a); vtx[w]=start[w]+(end[w]-start[w])*t;
+        append(vtx,1,feedRate);
+      }
+    }
+
+    function drill(values, changed, end) {
+      if (!absolute || plane!==17 || (values.L!==undefined && values.L!==1)) {
+        stop('Only absolute G17 single-repeat G81/G82/G83 drilling is modeled');return;
+      }
+      if (changed || !cycle) cycle={z:NaN,r:NaN,q:NaN,p:0,initial:p[2]};
+      for (const k of ['z','r','q','p']) if (values[k.toUpperCase()]!==undefined) cycle[k]=values[k.toUpperCase()]*(k==='p'?1:unit);
+      const {r,z,q,initial}=cycle;
+      if (!Number.isFinite(r+z+initial) || r<=z || (mode===83 && (!(q>0) || (r-z)/q>2000))) {
+        stop('Missing or invalid drilling-cycle depth, retract, peck or initial Z');return;
+      }
+      const [x,y]=end;
+      if (!Number.isFinite(x+y)) { stop('Drilling cycle has no known XY position'); return; }
+      pendingHole={name:typeof pendingHole==='string'?pendingHole:('Hole '+(holes.length+1)),x,y};
+      if (p[2]<r) append([p[0],p[1],r],0,rapidFeed);
+      append([x,y,p[2]],0,rapidFeed); append([x,y,r],0,rapidFeed);
+      if (mode===83) {
+        warn('peck', 'G83 peck approach clearance is approximated at 0.1 mm.');
+        let bottom=r;
+        while (bottom>z) {
+          if (bottom<r) append([x,y,Math.min(r,bottom+.1)],0,rapidFeed);
+          bottom=Math.max(z,bottom-q);
+          append([x,y,bottom],1,feedRate);
+          if (bottom>z) append([x,y,r],0,rapidFeed);
+        }
+      } else {
+        append([x,y,z],1,feedRate);
+        if (mode===82 && cycle.p>0) append(p,2,0,cycle.p*dwellP);
+      }
+      append([x,y,returnInitial?Math.max(r,initial):r],0,rapidFeed);
+    }
+    function comment(text) {
+      const clean=text.trim();
+      const stage=/^(\d{2}[a-z]?_[a-z0-9_ .-]+)$/i.exec(clean) ||
+                  /^(?:operation|op|toolpath)\s*[:=]\s*(.+)$/i.exec(clean);
+      if (stage) pendingStage=stage[1].replaceAll('_',' ');
+      const hole=/^hole\s+\d+\b/i.exec(clean);
+      if (hole) pendingHole=hole[0];
+    }
+
+    let cursor=0;
+    while (cursor<source.length && !stopped) {
+      let next=source.indexOf('\n',cursor);
+      if(next===-1)next=source.length;
+      let block=source.slice(cursor,next).trim();cursor=next+1;ln++;
+      if (!block || block==='%')continue;
+      if (block.includes('(')) block=block.replace(/\(([^()]*)\)/g,(_,t)=>{comment(t);return '';});
+      const sem=block.indexOf(';');
+      if(sem>=0){comment(block.slice(sem+1));block=block.slice(0,sem);}
+      block=block.trim().toUpperCase();if(!block)continue;
+      if (/[#\[\]=]|^O\s*<|\b(?:IF|WHILE|CALL|REPEAT)\b/.test(block)) {stop('Macros and program flow are unsupported');break;}
+      if (block[0]==='/') {stop('Optional block execution depends on controller state');break;}
+      if (block.includes('*')) block=block.split('*')[0];
+      const words=/([A-Z])\s*([-+]?(?:\d+\.?\d*|\.\d+))/g;
+      let match,last=0,garbage=false; const values={},gs=[],ms=[];
+      while ((match=words.exec(block))!==null) {
+        if (block.slice(last,match.index).trim()) garbage=true;
+        last=words.lastIndex;
+        const letter=match[1],v=Number(match[2]);
+        if (!Number.isFinite(v)) {garbage=true;break;}
+        if(letter==='G') gs.push(v);else if(letter==='M') ms.push(v);else values[letter]=v;
+      }
+      if(garbage || block.slice(last).trim()){stop('Unrecognized instruction');break;}
+      if (['A','B','C','U','V','W','E'].some(k=>values[k]!==undefined)) {stop('Additional axis or extrusion is unsupported');break;}
+      const hasXYZ=values.X!==undefined||values.Y!==undefined||values.Z!==undefined;
+      let dwell=false,machineMove=false,cycleChanged=false,toolChanged=false;
+      for (const g of gs) {
+        if (g===0||g===1||g===2||g===3) {mode=g;cycle=null;}
+        else if(g===81||g===82||g===83) {cycleChanged=!cycle||mode!==g;mode=g;}
+        else if(g===80){mode=null;cycle=null;}
+        else if(g===4)dwell=true;
+        else if(g===17||g===18||g===19)plane=g;
+        else if(g===20||g===21)unit=g===20?25.4:1;
+        else if(g===90||g===91)absolute=g===90;
+        else if(g===90.1||g===91.1)absCenter=g===90.1;
+        else if(g===98||g===99)returnInitial=g===98;
+        else if(g>=54&&g<=59&&Number.isInteger(g)){
+          if(wcs!==null&&wcs!==g){stop('Multiple work offsets require a physical offset table');break;}
+          wcs=g;
+        }
+        else if(g===53||g===28||g===30){machineMove=true;}
+        else if([40,43,49,61,61.1,64,94,97].includes(g)){}
+        else {stop('Unsupported G'+g);break;}
+      }
+      if(stopped)break;
+      if(values.T!==undefined){
+        if(!Number.isInteger(values.T)||values.T<0||values.T>65535){stop('Invalid tool number');break;}
+        pendingTool=values.T;
+      }
+      for(const m of ms){
+        if(m===6){toolChanged=activeTool!==pendingTool;activeTool=pendingTool;}
+        else if(m===3||m===4)spindleOn=1;
+        else if(m===5)spindleOn=0;
+        else if(m===0||m===1)warn('operator-stop','Operator stop time is excluded.');
+        else if(m===2||m===30){stopped=true;break;}
+        else if([7,8,9,48,49,400].includes(m)){}
+        else{stop('Unsupported M'+m);break;}
+      }
+      if(stopped)break;
+      if(toolChanged&&!pendingStage)pendingStage='Tool T'+activeTool;
+      if(values.F!==undefined)feedRate=values.F*unit;
+      if(machineMove){p=[NaN,NaN,NaN];warn('machine-frame','Machine-coordinate or reference moves and subsequent unknown travel are omitted.');continue;}
+      if(dwell) {if(!Number.isFinite(p[0]+p[1]+p[2])) {implicitRange=true;} else append(p,2,0,values.S??(values.P||0)*dwellP);continue;}
+      if(!hasXYZ && !(mode===2||mode===3||mode===81||mode===82||mode===83))continue;
+      const arcWords=values.R!==undefined||values.I!==undefined||values.J!==undefined||values.K!==undefined;
+      if(!hasXYZ && !arcWords && !cycleChanged)continue;
+      const end=axisKeys.map((k,i)=>values[k]===undefined?p[i]:((absolute?0:p[i])+values[k]*unit));
+      if(mode===0||mode===1)append(end,mode,mode===0?rapidFeed:feedRate);
+      else if(mode===2||mode===3)arc(end,values);
+      else if(mode===81||mode===82||mode===83)drill(values,cycleChanged,end);
+      else if(hasXYZ)warn('unknown-mode','Axis words before a motion mode are omitted.');
+    }
+    if(omittedStart || implicitRange)notes.push('Approach travel and dwell before the first known XYZ position are excluded from timing.');
+    if(!count) {bounds.min=[0,0,0];bounds.max=[0,0,0];}
+    for(const k in types)out[k]=out[k].subarray(0,count*(k==='xyz'?6:1));
+    return {...out,count,duration,bounds,stages,holes,tools:[...usedTools],warnings,notes,firstFeedIndex,lineCount:ln};
+  }
+  globalThis.parseNC=parseNC;
+  if (typeof module!=='undefined' && module.exports)module.exports=parseNC;
+}());
+</script>
+<script>/* NC viewer orthographic plotter; all coordinates and cutter sizes are millimetres. */
+(function () {
+  "use strict";
+  const bg = "#101820";
+  const palette = ["#a9bdcf","#42c7b1","#c89bff","#dac96e","#f0aa68","#69acff","#ee8e9d","#87c3a3"];
+  const rapidColor = "#a7bacd";
+  const toolColor = n => palette[n % palette.length] || palette[0];
+  const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
+  const dot = (a,b) => a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+  const rgb = str => [parseInt(str.slice(1,3),16),parseInt(str.slice(3,5),16),parseInt(str.slice(5,7),16)];
+  const finitePoint = p => p && p.length >= 3 && p.every(Number.isFinite);
+  function boxCorners(lo,hi) {
+    return [lo[2],hi[2]].flatMap(z => [[lo[0],lo[1],z],[hi[0],lo[1],z],[hi[0],hi[1],z],[lo[0],hi[1],z]]);
+  }
+  function makeLayer(host) {
+    const canvas=document.createElement("canvas");
+    Object.assign(canvas.style,{position:"absolute",inset:"0",width:"100%",height:"100%",display:"block",pointerEvents:"none"});
+    host.append(canvas);
+    return canvas;
+  }
+  function findMove(times,time) {
+    let lo=0,hi=times.length;
+    while(lo<hi) { const mid=lo+Math.floor((hi-lo)/2); if(times[mid]<=time) lo=mid+1; else hi=mid; }
+    return lo;
+  }
+  class NCRenderer {
+    constructor(host,{onViewChange}={}) {
+      this.host=host;this.onViewChange=onViewChange;this.stock=null;this.part=null;this.tools={};
+      this.markers={};this.opt={rapid:true,future:true,stock:true,grid:true,part:true,tool:true,markers:true};
+      if(getComputedStyle(host).position==="static")host.style.position="relative";
+      Object.assign(host.style,{overflow:"hidden",touchAction:"none",background:bg});
+      this.back=makeLayer(host);this.paths=makeLayer(host);this.front=makeLayer(host);
+      this.back.setAttribute("aria-hidden","true");this.paths.setAttribute("aria-hidden","true");
+      this.front.setAttribute("aria-label","Orthographic NC toolpath preview");this.front.style.pointerEvents="auto";
+      this.front.style.cursor="grab";this.b=this.back.getContext("2d");this.f=this.front.getContext("2d");
+      this.yaw=.44;this.elev=.72;this.view="iso";this.center=[0,0,0];this.scale=9;this.pan=[0,0];this.fitMode="path";
+      this.width=1;this.height=1;this.ratio=1;this.time=0;this.dirty=true;this.pending=false;
+      this._initPathLayer();this._listen();
+      this.obs=new ResizeObserver(()=>this._resize());this.obs.observe(host);this._resize();
+    }
+    _initPathLayer() {
+      try {
+        const gl=this.paths.getContext("webgl",{antialias:true,alpha:true,depth:false,stencil:false,premultipliedAlpha:false,preserveDrawingBuffer:false});
+        if(!gl)throw Error("no WebGL");
+        const compile=(type,src)=>{
+          const shader=gl.createShader(type);gl.shaderSource(shader,src);gl.compileShader(shader);
+          if(!gl.getShaderParameter(shader,gl.COMPILE_STATUS))throw Error(gl.getShaderInfoLog(shader));return shader;
+        };
+        const vs=compile(gl.VERTEX_SHADER,`
+          attribute vec3 p; attribute vec4 attr;
+          uniform vec3 hAxis,vAxis,center; uniform vec2 scale,pan;
+          varying lowp vec4 tint;
+          void main() { vec3 q=p-center; gl_Position=vec4(vec2(dot(q,hAxis),dot(q,vAxis))*scale+pan,0.,1.); tint=attr; }`);
+        const fs=compile(gl.FRAGMENT_SHADER,`
+          precision mediump float; varying lowp vec4 tint;
+          uniform bool rapidOn; uniform bool ghost;
+          void main() {
+            bool rapid=tint.a>.5;
+            if(rapid && !rapidOn)discard;
+            vec3 c=tint.rgb;
+            if(ghost) c=mix(vec3(.055,.090,.116),c, rapid?.14:.43);
+            else if(rapid)c=mix(vec3(.055,.090,.116),c,.60);
+            gl_FragColor=vec4(c,1.);
+          }`);
+        const program=gl.createProgram();gl.attachShader(program,vs);gl.attachShader(program,fs);gl.linkProgram(program);
+        if(!gl.getProgramParameter(program,gl.LINK_STATUS))throw Error(gl.getProgramInfoLog(program));
+        gl.deleteShader(vs);gl.deleteShader(fs);
+        this.gl=gl;this.prog=program;this.coords=gl.createBuffer();this.colors=gl.createBuffer();
+        this.uniforms={};["hAxis","vAxis","center","scale","pan","rapidOn","ghost"].forEach(k=>this.uniforms[k]=gl.getUniformLocation(program,k));
+        this.locP=gl.getAttribLocation(program,"p");this.locC=gl.getAttribLocation(program,"attr");gl.clearColor(0,0,0,0);
+        this.paths.addEventListener("webglcontextlost",e=>{e.preventDefault();this._fallback();this._invalidate();});
+      }catch(e){this._fallback();}
+    }
+    _fallback() {
+      this.gl=null;
+      const c=this.paths.cloneNode(false);this.paths.replaceWith(c);this.paths=c;this.p=c.getContext("2d");
+      this.futureCache=document.createElement("canvas");this.pastCache=document.createElement("canvas");
+      this.cpuKey="";this.pastCount=0;
+    }
+    _upload() {
+      if(!this.gl||!this.job)return;
+      const gl=this.gl,j=this.job,colors=new Uint8Array(j.count*8),byTool=palette.map(rgb),rap=rgb(rapidColor);
+      for(let i=0;i<j.count;i++) {
+        const rapid=j.kind[i]===0,c=rapid?rap:byTool[j.tool[i]%palette.length],k=i*8;
+        colors[k]=colors[k+4]=c[0];colors[k+1]=colors[k+5]=c[1];colors[k+2]=colors[k+6]=c[2];colors[k+3]=colors[k+7]=rapid?255:0;
+      }
+      gl.bindBuffer(gl.ARRAY_BUFFER,this.coords);gl.bufferData(gl.ARRAY_BUFFER,j.xyz,gl.STATIC_DRAW);
+      gl.bindBuffer(gl.ARRAY_BUFFER,this.colors);gl.bufferData(gl.ARRAY_BUFFER,colors,gl.STATIC_DRAW);
+    }
+    _resize() {
+      const w=Math.max(1,this.host.clientWidth),h=Math.max(1,this.host.clientHeight),r=clamp(window.devicePixelRatio||1,1,2);
+      if(w===this.width&&h===this.height&&r===this.ratio)return;
+      this.width=w;this.height=h;this.ratio=r;
+      for(const c of [this.back,this.paths,this.front]) {c.width=Math.round(w*r);c.height=Math.round(h*r);}
+      if(this.fitMode)this.fit(this.fitMode);else this._invalidate();
+    }
+    setJob(job) {this.job=job;this.time=0;this.markers={};this._upload();this.fit("path");}
+    setStock(s) {this.stock=s;if(this.fitMode==="stock")this.fit("stock");else this._invalidate();}
+    setPart(p) {this.part=p;this._invalidate();}
+    setTools(t) {this.tools=t||{};this._invalidate();}
+    setOptions(o) {Object.assign(this.opt,o);this._invalidate();}
+    setMarkers(m) {this.markers=m||{};this._invalidate();}
+    setTime(seconds) {this.time=clamp(Number(seconds)||0,0,this.job?.duration||0);this._queue();}
+    _queue() {if(!this.pending){this.pending=true;requestAnimationFrame(()=>{this.pending=false;this._draw();});}}
+    _invalidate() {this.dirty=true;this.cpuKey="";this._queue();}
+    _basis() {
+      const [a,e]=[this.yaw,this.elev],ca=Math.cos(a),sa=Math.sin(a),ce=Math.cos(e),se=Math.sin(e);
+      this.u=[ca,sa,0];this.v=[-sa*se,ca*se,ce];
+    }
+    project(p) {
+      const q=[p[0]-this.center[0],p[1]-this.center[1],p[2]-this.center[2]];
+      return [this.width/2+this.pan[0]+dot(q,this.u)*this.scale,this.height/2+this.pan[1]-dot(q,this.v)*this.scale];
+    }
+    _stockBox() {
+      const s=this.stock;
+      if(!s||![s.x,s.y,s.z,s.l,s.w,s.h].every(Number.isFinite))return null;
+      return [[s.x,s.y,s.z],[s.x+s.l,s.y+s.w,s.z+s.h]];
+    }
+    fit(mode="path") {
+      this.fitMode=mode;this._basis();
+      let bb=this.job?.bounds;let lo=bb?.min,hi=bb?.max;
+      if(!finitePoint(lo)||!finitePoint(hi)){lo=[0,0,0];hi=[1,1,1];}
+      if(mode==="stock"&&this._stockBox()){const b=this._stockBox();lo=b[0].map((v,i)=>Math.min(v,lo[i]));hi=b[1].map((v,i)=>Math.max(v,hi[i]));}
+      this.center=lo.map((v,i)=>(v+hi[i])/2);this.pan=[0,0];
+      const all=boxCorners(lo,hi),uu=all.map(p=>dot(p,this.u)),vv=all.map(p=>dot(p,this.v));
+      const availW=Math.max(10,this.width-72),availH=Math.max(10,this.height-90);
+      this.scale=clamp(Math.min(availW/Math.max(.2,Math.max(...uu)-Math.min(...uu)),availH/Math.max(.2,Math.max(...vv)-Math.min(...vv))),.0001,5000);
+      this._invalidate();
+    }
+    setView(name) {
+      const angles={iso:[.44,.72],top:[0,Math.PI/2],front:[0,0],right:[Math.PI/2,0]};
+      if(!angles[name])return;
+      this.view=name;[this.yaw,this.elev]=angles[name];this.fit(this.fitMode||"path");this.onViewChange?.(name);
+    }
+    zoom(factor,anchor=[this.width/2,this.height/2]) {
+      const scale=clamp(this.scale*factor,.0001,5000),k=scale/this.scale;
+      this.pan=[0,1].map(i=>(this.pan[i]-(anchor[i]-(i?this.height:this.width)/2))*k+(anchor[i]-(i?this.height:this.width)/2));
+      this.scale=scale;this.fitMode=null;this._invalidate();
+    }
+    _listen() {
+      const c=this.front;let drag=null;
+      c.addEventListener("pointerdown",e=>{if(drag)return;drag={id:e.pointerId,x:e.clientX,y:e.clientY,pan:e.button!==0||e.shiftKey};c.setPointerCapture(e.pointerId);c.style.cursor="grabbing";});
+      c.addEventListener("pointermove",e=>{
+        if(!drag||drag.id!==e.pointerId)return;
+        const dx=e.clientX-drag.x,dy=e.clientY-drag.y;drag.x=e.clientX;drag.y=e.clientY;
+        if(!dx&&!dy)return;this.fitMode=null;
+        if(drag.pan){this.pan[0]+=dx;this.pan[1]+=dy;}
+        else{this.yaw-=dx*.007;this.elev=clamp(this.elev+dy*.007,-1.52,Math.PI/2);if(this.view!=="orbit"){this.view="orbit";this.onViewChange?.("orbit");}}
+        this._invalidate();
+      });
+      const end=e=>{if(!drag||drag.id!==e.pointerId)return;drag=null;c.style.cursor="grab";};
+      c.addEventListener("lostpointercapture",end);c.addEventListener("pointerup",end);c.addEventListener("pointercancel",end);
+      c.addEventListener("contextmenu",e=>e.preventDefault());
+      c.addEventListener("wheel",e=>{e.preventDefault();const r=c.getBoundingClientRect();this.zoom(Math.exp(-clamp(e.deltaY*(e.deltaMode===1?16:1),-260,260)*.0016),[e.clientX-r.left,e.clientY-r.top]);},{passive:false});
+      c.addEventListener("dblclick",()=>this.fit("path"));
+    }
+    _poly(ctx,pts,fill,stroke,close=true) {
+      if(!pts.length)return;ctx.beginPath();const a=this.project(pts[0]);ctx.moveTo(...a);
+      for(let i=1;i<pts.length;i++)ctx.lineTo(...this.project(pts[i]));if(close)ctx.closePath();
+      if(fill){ctx.fillStyle=fill;ctx.fill();}if(stroke){ctx.strokeStyle=stroke;ctx.stroke();}
+    }
+    _drawGrid(ctx) {
+      const s=this.stock,base=s?.z||0,sc=this.scale;
+      const stepGoal=55/sc;
+      const decade=10**Math.floor(Math.log10(stepGoal)),ratio=stepGoal/decade;
+      const step=(ratio<1.5?1:ratio<3.5?2:ratio<7?5:10)*decade;
+      const cx=this.width/2,cy=this.height/2;
+      // Center the grid on the currently visible plane even when panned.
+      const du=-this.pan[0]/sc;
+      const sv=Math.max(.12,Math.abs(Math.sin(this.elev)))*Math.sign(Math.sin(this.elev)||1);
+      const dv=(this.pan[1]/sc-(base-this.center[2])*this.v[2])/sv;
+      const gx=this.center[0]+du*this.u[0]-dv*this.u[1],gy=this.center[1]+du*this.u[1]+dv*this.u[0];
+      const rad=(cx+cy)/sc/Math.max(.15,Math.abs(sv));
+      const span=Math.min(90*step,rad+2*step),ax=Math.floor((gx-span)/step)*step,ay=Math.floor((gy-span)/step)*step;
+      ctx.lineWidth=.65;
+      for(let x=ax;x<=gx+span;x+=step)this._poly(ctx,[[x,gy-span,base],[x,gy+span,base]],null,"#23313d",false);
+      for(let y=ay;y<=gy+span;y+=step)this._poly(ctx,[[gx-span,y,base],[gx+span,y,base]],null,"#23313d",false);
+    }
+    _roundedPart(ctx) {
+      const p=this.part;if(!p||!this.opt.part)return;
+      const r=clamp(p.r||0,0,Math.min(p.l,p.w)*.5),x=p.x,y=p.y,z=p.z;
+      const corners=[[x+p.l-r,y+r,-90],[x+p.l-r,y+p.w-r,0],[x+r,y+p.w-r,90],[x+r,y+r,180]];
+      const pts=[];
+      for(const [cx,cy,start] of corners)for(let i=0;i<=12;i++){const a=(start+i*7.5)*Math.PI/180;pts.push([cx+r*Math.cos(a),cy+r*Math.sin(a),z]);}
+      ctx.save();ctx.lineWidth=1.2;ctx.setLineDash([5,4]);this._poly(ctx,pts,null,"#e8d8b8");ctx.restore();
+    }
+    _static() {
+      const c=this.b;c.setTransform(this.ratio,0,0,this.ratio,0,0);c.fillStyle=bg;c.fillRect(0,0,this.width,this.height);
+      if(this.opt.grid)this._drawGrid(c);
+      const box=this._stockBox();if(box&&this.opt.stock) {
+        const ps=boxCorners(...box),s=this.elev;
+        const sides=[[0,1,5,4],[1,2,6,5],[2,3,7,6],[3,0,4,7]];
+        const normal=[Math.sin(this.yaw)*Math.cos(s),-Math.cos(this.yaw)*Math.cos(s),Math.sin(s)];
+        sides.sort((a,b)=>a.reduce((n,i)=>n+dot(ps[i],normal),0)-b.reduce((n,i)=>n+dot(ps[i],normal),0));
+        c.lineWidth=1;
+        if(s<0)this._poly(c,[ps[4],ps[5],ps[6],ps[7]],"#443328","#9c7053");
+        for(const side of sides)this._poly(c,side.map(i=>ps[i]),"#342c29","#765a47");
+        if(s>=0)this._poly(c,[ps[4],ps[5],ps[6],ps[7]],"#45372e","#bc8d65");
+        if(s<0)this._poly(c,ps.slice(0,4),"#302c2b","#846854");
+      }
+      this._roundedPart(c);
+      this.dirty=false;
+    }
+    _drawGL(done) {
+      const g=this.gl,u=this.uniforms,j=this.job;g.viewport(0,0,this.paths.width,this.paths.height);g.clear(g.COLOR_BUFFER_BIT);
+      if(!j||!j.count)return;g.useProgram(this.prog);g.bindBuffer(g.ARRAY_BUFFER,this.coords);g.enableVertexAttribArray(this.locP);g.vertexAttribPointer(this.locP,3,g.FLOAT,false,0,0);
+      g.bindBuffer(g.ARRAY_BUFFER,this.colors);g.enableVertexAttribArray(this.locC);g.vertexAttribPointer(this.locC,4,g.UNSIGNED_BYTE,true,0,0);
+      g.uniform3fv(u.hAxis,this.u);g.uniform3fv(u.vAxis,this.v);g.uniform3fv(u.center,this.center);
+      g.uniform2f(u.scale,2*this.scale/this.width,2*this.scale/this.height);g.uniform2f(u.pan,2*this.pan[0]/this.width,-2*this.pan[1]/this.height);
+      g.uniform1i(u.rapidOn,+this.opt.rapid);
+      if(this.opt.future&&done<j.count){g.uniform1i(u.ghost,1);g.drawArrays(g.LINES,done*2,(j.count-done)*2);}
+      if(done){g.uniform1i(u.ghost,0);g.drawArrays(g.LINES,0,done*2);}
+    }
+    _cpuSegments(c,from,to,ghost) {
+      const j=this.job;if(!j||from>=to)return;
+      const ax=this.u[0]*this.scale,ay=this.u[1]*this.scale,bx=-this.v[0]*this.scale,by=-this.v[1]*this.scale,bz=-this.v[2]*this.scale;
+      const tx=this.width/2+this.pan[0]-this.center[0]*ax-this.center[1]*ay;
+      const ty=this.height/2+this.pan[1]-this.center[0]*bx-this.center[1]*by-this.center[2]*bz;
+      const s=j.xyz;let lastStyle=-1,lines=0;
+      c.lineWidth=.9;c.setTransform(this.ratio,0,0,this.ratio,0,0);c.beginPath();
+      const styles=palette.concat(rapidColor).map(k=>{if(!ghost)return k;const col=rgb(k),base=rgb(bg),v=k===rapidColor?.16:.42;return "rgb("+col.map((t,i)=>Math.round(t*v+base[i]*(1-v))).join(",")+")";});
+      // Preserve endpoint order; avoid millions of subpixel Canvas strokes deep inside dense programs.
+      for(let i=from,n=i*6;i<to;i++,n+=6) {
+        const rapid=j.kind[i]===0;if(rapid&&!this.opt.rapid||j.kind[i]===2)continue;
+        const style=rapid?palette.length:j.tool[i]%palette.length;
+        const x0=tx+ax*s[n]+ay*s[n+1],y0=ty+bx*s[n]+by*s[n+1]+bz*s[n+2],x1=tx+ax*s[n+3]+ay*s[n+4],y1=ty+bx*s[n+3]+by*s[n+4]+bz*s[n+5];
+        if((x0<0&&x1<0)||(x0>this.width&&x1>this.width)||(y0<0&&y1<0)||(y0>this.height&&y1>this.height))continue;
+        if(style!==lastStyle||lines>3000){c.stroke();c.beginPath();c.strokeStyle=styles[style];lastStyle=style;lines=0;}
+        c.moveTo(x0,y0);c.lineTo(x1,y1);lines++;
+      }
+      c.stroke();
+    }
+    _drawCPU(done) {
+      const j=this.job,p=this.p,W=this.paths.width,H=this.paths.height;
+      if(!this.cpuKey) {
+        for(const c of [this.futureCache,this.pastCache]){c.width=W;c.height=H;}
+        if(this.opt.future&&j)this._cpuSegments(this.futureCache.getContext("2d"),0,j.count,true);
+        this.pastCount=0;this.cpuKey="ready";
+      }
+      p.setTransform(1,0,0,1,0,0);p.clearRect(0,0,W,H);
+      if(this.opt.future)p.drawImage(this.futureCache,0,0);
+      const cache=this.pastCache.getContext("2d");
+      if(done<this.pastCount){cache.setTransform(1,0,0,1,0,0);cache.clearRect(0,0,W,H);this.pastCount=0;}
+      if(done>this.pastCount)this._cpuSegments(cache,this.pastCount,done,false);
+      this.pastCount=done;p.drawImage(this.pastCache,0,0);
+    }
+    _gizmo(c) {
+      const ox=36,oy=this.height-39,len=21;
+      c.save();c.font="600 10px Segoe UI, sans-serif";c.textAlign="center";c.textBaseline="middle";
+      const axes=[[0,"X","#f09c87"],[1,"Y","#81d2ac"],[2,"Z","#92b9ff"]];
+      for(const [i,text,color] of axes){const dx=this.u[i],dy=-this.v[i];if(dx*dx+dy*dy<.01)continue;c.strokeStyle=color;c.fillStyle=color;c.lineWidth=1.65;c.beginPath();c.moveTo(ox,oy);c.lineTo(ox+dx*len,oy+dy*len);c.stroke();c.fillText(text,ox+dx*(len+6),oy+dy*(len+6));}
+      c.beginPath();c.arc(ox,oy,2.2,0,2*Math.PI);c.fillStyle="#e3e9ed";c.fill();c.restore();
+    }
+    _label(c,x,y,text,color) {
+      if(x>this.width-38)x-=48;
+      c.save();c.font="600 10px Segoe UI, sans-serif";c.textAlign="left";c.textBaseline="middle";c.lineWidth=3;c.strokeStyle="#111a20";c.strokeText(text,x,y);c.fillStyle=color;c.fillText(text,x,y);c.restore();
+    }
+    _marks(c) {
+      const o=this.project([0,0,0]);c.strokeStyle="#f2f4f5";c.lineWidth=1.3;
+      c.beginPath();c.moveTo(o[0]-5,o[1]);c.lineTo(o[0]+5,o[1]);c.moveTo(o[0],o[1]-5);c.lineTo(o[0],o[1]+5);c.stroke();this._label(c,o[0]+8,o[1]+13,"Origin","#ebf0f1");
+      for(const [p,label,col,delta] of [[this.markers.entry,"Entry","#ffc78f",-12],[this.markers.contact,"Contact","#81e2c9",14]]) {
+        if(!finitePoint(p))continue;
+        const [x,y]=this.project(p);c.strokeStyle=col;c.lineWidth=1.6;c.beginPath();c.moveTo(x,y-4.4);c.lineTo(x+4.4,y+(label==="Entry"?3:0));if(label!=="Entry")c.lineTo(x,y+4.4);c.lineTo(x-4.4,y+(label==="Entry"?3:0));c.closePath();c.stroke();this._label(c,x+8,y+delta,label,col);
+      }
+    }
+    _tool(c,point,toolNo) {
+      const opt=this.tools instanceof Map?this.tools.get(toolNo):this.tools?.[toolNo];
+      const d=Number(opt?.d??opt?.diameter??1.5),shape=String(opt?.shape||"flat").toLowerCase();
+      const rad=Math.max(.03,Math.abs(d)/2);
+      const length=Math.min(Math.max(44/this.scale,rad*2.6),Math.max(rad*6,90/this.scale));
+      const [x,y,z]=point;
+      const centerZ=shape.includes("ball")?rad:shape.includes("drill")?rad*.6:0;
+      // Rotate the circular tool through the view basis so the two side strokes are its silhouette.
+      const w=this.u,t=toolColor(toolNo);
+      const ring=(dz,r)=>Array.from({length:33},(_,i)=>{const a=i*Math.PI/16;return [x+r*Math.cos(a),y+r*Math.sin(a),z+dz];});
+      c.lineWidth=1.2;const outline=[];
+      if(centerZ>0){for(let i=-16;i<=16;i++){
+        const v=i/16,dz=shape.includes("ball")?rad*(1-Math.sqrt(Math.max(0,1-v*v))):centerZ*Math.abs(v);
+        outline.push([x+w[0]*v*rad,y+w[1]*v*rad,z+dz]);}}
+      else outline.push([x-w[0]*rad,y-w[1]*rad,z],[x+w[0]*rad,y+w[1]*rad,z]);
+      outline.push([x+w[0]*rad,y+w[1]*rad,z+length],[x-w[0]*rad,y-w[1]*rad,z+length]);
+      this._poly(c,outline,"rgba(241,247,247,.16)","#e8f2f2");
+      this._poly(c,ring(length,rad),"rgba(238,244,245,.28)","#eff5f6");
+      this._poly(c,ring(centerZ,rad),null,t);
+      const tip=this.project(point);c.fillStyle="#fff";c.strokeStyle="#17242a";c.lineWidth=1;c.beginPath();c.arc(...tip,2.1,0,2*Math.PI);c.fill();c.stroke();
+    }
+    _draw() {
+      this._basis();if(this.dirty)this._static();
+      const j=this.job,done=j?findMove(j.endTime,this.time):0;
+      if(this.gl)this._drawGL(done);else this._drawCPU(done);
+      const c=this.f;c.setTransform(this.ratio,0,0,this.ratio,0,0);c.clearRect(0,0,this.width,this.height);
+      if(this.opt.markers)this._marks(c);
+      if(j?.count){const i=Math.min(done,j.count-1),k=i*6,start=i?j.endTime[i-1]:0,delta=j.endTime[i]-start;
+        const frac=delta?clamp((this.time-start)/delta,0,1):1;
+        const a=Array.from(j.xyz.subarray(k,k+3)),b=a.map((v,t)=>v+(j.xyz[k+t+3]-v)*frac);
+        if(j.kind[i]!==2&&(j.kind[i]!==0||this.opt.rapid)){c.lineWidth=2.3;this._poly(c,[a,b],null,j.kind[i]===0?rapidColor:toolColor(j.tool[i]),false);}
+        if(this.opt.tool)this._tool(c,b,j.tool[i]);
+      }
+      this._gizmo(c);
+    }
+  }
+  globalThis.NCRenderer=NCRenderer;
+})();
+</script>
+<script>/* Top-down stock removal. Z values denote cutter-tip height, in work millimetres. */
+(function () {
+  "use strict";
+
+  function buildStockEngine(job, stock, definitions) {
+    const {xyz, kind, spindle, tool, count, endTime} = job;
+    const {x, y, z, l, w, h} = stock;
+    const top = z + h;
+    const tools = Object.create(null);
+    for (const [key, definition] of Object.entries(definitions)) {
+      const radius = Number(definition.d) / 2;
+      if (!Number.isFinite(radius) || radius <= 0) continue;
+      const shape = (definition.shape || "flat").toLowerCase();
+      const angle = Number(definition.angle) || 118;
+      const slope = 1 / Math.tan(Math.max(1, Math.min(179, angle)) * Math.PI / 360);
+      tools[key] = {radius, ball: shape.includes("ball"), cone: /drill|cone|engrave|chamfer|v-bit/.test(shape), slope};
+    }
+
+    let xmin = Infinity, ymin = Infinity, xmax = -Infinity, ymax = -Infinity;
+    const unknown = new Set();
+    let activeMoves = 0;
+    for (let i = 0; i < count; i++) {
+      if (kind[i] !== 1 || !spindle[i]) continue;
+      const p = 6 * i;
+      if (Math.min(xyz[p + 2], xyz[p + 5]) >= top) continue;
+      const tip = tools[tool[i]];
+      if (!tip) { unknown.add(tool[i]); continue; }
+      const r = tip.radius;
+      const x0 = xyz[p], y0 = xyz[p + 1], x1 = xyz[p + 3], y1 = xyz[p + 4];
+      const left = Math.max(x, Math.min(x0, x1) - r);
+      const right = Math.min(x + l, Math.max(x0, x1) + r);
+      const front = Math.max(y, Math.min(y0, y1) - r);
+      const back = Math.min(y + w, Math.max(y0, y1) + r);
+      if (left >= right || front >= back) continue;
+      xmin = Math.min(xmin, left); ymin = Math.min(ymin, front);
+      xmax = Math.max(xmax, right); ymax = Math.max(ymax, back);
+      activeMoves++;
+    }
+    if (!activeMoves) { xmin = x; ymin = y; xmax = x + l; ymax = y + w; }
+    const width = xmax - xmin, height = ymax - ymin;
+    // Sample only the region that a cutting tool can touch. Untouched bar is drawn separately.
+    const pitch = Math.max(0.10, width / 600, height / 600, Math.sqrt(width * height / 75000));
+    const nx = Math.max(1, Math.ceil(width / pitch)), ny = Math.max(1, Math.ceil(height / pitch));
+    const sx = width / nx, sy = height / ny;
+    const factor = 65535 / h;
+    const meta = {xmin, ymin, xmax, ymax, nx, ny, sx, sy, unknown: Array.from(unknown), activeMoves};
+    const blank = () => new Uint16Array(nx * ny);
+    const clamp = (t, a, b) => Math.max(a, Math.min(b, t));
+
+    function sweep(pixels, i, fraction = 1) {
+      if (kind[i] !== 1 || !spindle[i] || fraction <= 0) return;
+      const tip = tools[tool[i]];
+      if (!tip) return;
+      const p = i * 6;
+      const ax = xyz[p], ay = xyz[p + 1], az = xyz[p + 2];
+      const dx = (xyz[p + 3] - ax) * fraction, dy = (xyz[p + 4] - ay) * fraction;
+      const dz = (xyz[p + 5] - az) * fraction;
+      const lowest = Math.min(az, az + dz);
+      if (lowest >= top) return;
+      const r = tip.radius, r2 = r * r;
+      const limit = lowest <= z ? 65535 : Math.min(65534, Math.round((top - lowest) * factor));
+      const startX = Math.max(0, Math.ceil((Math.min(ax, ax + dx) - r - xmin) / sx - 0.5));
+      const endX = Math.min(nx - 1, Math.floor((Math.max(ax, ax + dx) + r - xmin) / sx - 0.5));
+      const startY = Math.max(0, Math.ceil((Math.min(ay, ay + dy) - r - ymin) / sy - 0.5));
+      const endY = Math.min(ny - 1, Math.floor((Math.max(ay, ay + dy) + r - ymin) / sy - 0.5));
+      if (startX > endX || startY > endY) return;
+      const len2 = dx * dx + dy * dy, len = Math.sqrt(len2);
+      const m = len > 0 ? dz / len : 0;
+      const slopeFactor = tip.ball ? m / Math.sqrt(1 + m * m) :
+        tip.cone && Math.abs(m) < tip.slope ? m / Math.sqrt(tip.slope * tip.slope - m * m) : 0;
+      const firstU = xmin + (startX + 0.5) * sx - ax;
+      for (let j = startY; j <= endY; j++) {
+        const v = ymin + (j + 0.5) * sy - ay;
+        let idx = j * nx + startX;
+        let u = firstU;
+        for (let k = startX; k <= endX; k++, idx++, u += sx) {
+          if (pixels[idx] >= limit) continue;
+          let baseZ = lowest, distance2;
+          if (len2 < 1e-16) {
+            distance2 = u * u + v * v;
+          } else {
+            const t0 = (u * dx + v * dy) / len2;
+            let t = clamp(t0, 0, 1);
+            if (Math.abs(dz) > 1e-8) {
+              const cross = u * dy - v * dx;
+              const perp2 = cross * cross / len2;
+              if (perp2 > r2) continue;
+              const half = Math.sqrt(Math.max(0, r2 - perp2)) / len;
+              const tmin = Math.max(0, t0 - half), tmax = Math.min(1, t0 + half);
+              if (tmin > tmax) continue;
+              if (tip.ball) t = clamp(t0 - slopeFactor * half, tmin, tmax);
+              else if (tip.cone && Math.abs(m) < tip.slope)
+                t = clamp(t0 - slopeFactor * Math.sqrt(perp2) / len, tmin, tmax);
+              else t = dz >= 0 ? tmin : tmax;
+            }
+            const du = u - dx * t, dv = v - dy * t;
+            distance2 = du * du + dv * dv;
+            baseZ = az + dz * t;
+          }
+          if (distance2 > r2 + 1e-9) continue;
+          if (tip.ball) baseZ += r - Math.sqrt(Math.max(0, r2 - distance2));
+          else if (tip.cone) baseZ += Math.sqrt(Math.max(0, distance2)) * tip.slope;
+          // Reserve 65535 for an actual breakthrough. Quantizing a very thin floor must leave it solid.
+          const removed = baseZ <= z ? 65535 : Math.min(65534, Math.round((top - baseZ) * factor));
+          if (removed > pixels[idx]) pixels[idx] = removed;
+        }
+      }
+    }
+    function cursorAt(seconds) {
+      let lo = 0, hi = count;
+      while (lo < hi) {
+        const mid = (hi + lo) >>> 1;
+        if (endTime[mid] <= seconds) lo = mid + 1; else hi = mid;
+      }
+      const t0 = lo > 0 ? endTime[lo - 1] : 0;
+      const dt = lo < count ? endTime[lo] - t0 : 0;
+      return {i: lo, fraction: dt > 0 ? clamp((seconds - t0) / dt, 0, 1) : 0};
+    }
+    return {blank, sweep, meta, cursorAt};
+  }
+
+  function stockWorker(buildEngine, buildMesh) {
+    let job, engine, stock, pixels, checkpoints, stride, built, mode, timer, request;
+    let lastSolidDepths, meshError;
+    let key = 0, lastProgress = 0;
+
+    function report() { self.postMessage({key, type:"progress", progress: job.count ? built / job.count : 1}); }
+    function display() {
+      if (!request || !engine || !mode) return;
+      const {i, fraction} = engine.cursorAt(request.t);
+      if (built < i) return;
+      const checkpoint = Math.floor(i / stride);
+      const image = built === i ? pixels.slice() : checkpoints[checkpoint].slice();
+      if (built !== i) {
+        for (let j = checkpoint * stride; j < i; j++) engine.sweep(image, j);
+      }
+      if (i < job.count && fraction) engine.sweep(image, i, fraction);
+      const frame = {key, type:"image", mode, t:request.t, image};
+      const buffers = [image.buffer];
+      if (mode === "solid") {
+        // A motion above the surface can change the requested time without changing the mesh.
+        // The main thread keeps the most recent mesh for this configuration during view switches.
+        let changed = !lastSolidDepths;
+        if (!changed) {
+          for (let j = 0; j < image.length && !changed; j++) changed = image[j] !== lastSolidDepths[j];
+        }
+        if (changed && !meshError) {
+          try {
+            frame.mesh = buildMesh(stock, engine.meta, image);
+            buffers.push(frame.mesh.positions.buffer, frame.mesh.normals.buffer, frame.mesh.indices.buffer);
+            lastSolidDepths = image.slice();
+          } catch (err) {
+            meshError = "Could not build the stock surface: " + (err.message || err);
+          }
+        }
+        if (meshError) frame.error = meshError;
+      }
+      self.postMessage(frame, Array.from(new Set(buffers)));
+      request = null;
+    }
+    function pump() {
+      timer = undefined;
+      if (!mode) return;
+      display();
+      const deadline = performance.now() + 16;
+      while (built < job.count && performance.now() < deadline) {
+        const stop = Math.min(built + 64, job.count);
+        for (; built < stop;) {
+          engine.sweep(pixels, built++);
+          if (built % stride === 0) checkpoints.push(pixels.slice());
+        }
+      }
+      const now = performance.now();
+      if (built === job.count || now - lastProgress > 240) { report(); lastProgress = now; }
+      display();
+      if (built < job.count) timer = setTimeout(pump, 0);
+    }
+    self.onmessage = ({data}) => {
+      if (data.type === "job") job = data.job;
+      if (data.type === "configure") {
+        clearTimeout(timer); timer = undefined; key = data.key;request = null;
+        stock = data.stock; lastSolidDepths = null; meshError = "";
+        engine = buildEngine(job, stock, data.tools);
+        pixels = engine.blank(); checkpoints = [pixels.slice()];built = 0;
+        const maxFrames = Math.max(2, Math.min(120, Math.floor(16 * 1024 * 1024 / pixels.byteLength)));
+        stride = Math.max(1, Math.ceil(job.count / maxFrames));
+        self.postMessage({key,type:"meta",meta:engine.meta});
+      }
+      if (data.type === "active") {
+        mode = data.active === true ? "depth" : data.active;
+        request = null;
+      }
+      if (data.type === "seek") request = {t:data.t};
+      if (engine && mode && timer === undefined) timer = setTimeout(pump, 0);
+    };
+  }
+  function NCCutMap(container, {onStatus, onFrame} = {}) {
+    const canvas = document.createElement("canvas");
+    canvas.style.cssText = "display:block;width:100%;height:100%;touch-action:none;cursor:grab";
+    canvas.setAttribute("aria-label","Top view of simulated stock removal");
+    container.append(canvas);
+    const ctx = canvas.getContext("2d", {alpha:false});
+    const texture = document.createElement("canvas");
+    const textureCtx = texture.getContext("2d");
+    let job, stock = {x:0,y:0,z:-1,l:1,w:1,h:1}, tools = {};
+    let meta, worker, workerUrl, activeView = false, configureTimer, seekTimer;
+    let sourceChanged = true, configDirty = true, progress = 0, requested = 0;
+    let imageTime = -1, textureValid = false, key = 0, error = "", solidError = "";
+    let lastDepths = null, solidFrame = null, lastStatus = "", sentTime = -1;
+    let zoomFactor = 1, cx = 0, cy = 0, mode = "path", customCamera = false;
+    let width = 0, height = 0, scale = 1, lastSeek = 0, frame;
+    let cursorX, cursorY;
+    const observer = new ResizeObserver(() => schedulePaint()); observer.observe(container);
+
+    function viewRect(which) {
+      if (which === "path" && meta && meta.activeMoves)
+        return [meta.xmin, meta.ymin, meta.xmax, meta.ymax];
+      return [stock.x, stock.y, stock.x + stock.l, stock.y + stock.w];
+    }
+    function fit(which) {
+      mode = which === "stock" ? "stock" : "path"; customCamera = false;
+      const b = viewRect(mode);
+      cx = (b[0] + b[2]) / 2; cy = (b[1] + b[3]) / 2; zoomFactor = 1;
+      schedulePaint();
+    }
+    function zoom(factor, ox = width / 2, oy = height / 2) {
+      if (!Number.isFinite(factor) || factor <= 0 || !scale) return;
+      customCamera = true;
+      const newZoom = Math.max(.08, Math.min(80, zoomFactor * factor));
+      const r = newZoom / zoomFactor;
+      cx += (ox - width / 2) / scale * (1 - 1 / r);
+      cy -= (oy - height / 2) / scale * (1 - 1 / r);
+      zoomFactor = newZoom; schedulePaint();
+    }
+    function sendSeek() {
+      clearTimeout(seekTimer);seekTimer = undefined;
+      if (!worker || !job || !activeView || configDirty || sentTime === requested) return;
+      worker.postMessage({type:"seek", t:requested});
+      sentTime = requested;
+      lastSeek = performance.now();
+    }
+    function seek(seconds) {
+      requested = Math.max(0, Math.min(job ? job.duration : 0, Number(seconds) || 0));
+      if (!activeView || !worker || requested === sentTime) return;
+      if (seekTimer === undefined) seekTimer = setTimeout(sendSeek, Math.max(0, 90 - performance.now() + lastSeek));
+      schedulePaint();
+    }
+    function startWorker() {
+      if (worker) return;
+      const meshSource = globalThis.buildSolidMesh?.toString() || "null";
+      const code = "(" + stockWorker.toString() + ")(" + buildStockEngine.toString() + "," + meshSource + ");";
+      workerUrl = URL.createObjectURL(new Blob([code], {type:"text/javascript"}));
+      worker = new Worker(workerUrl);
+      worker.onmessage = ({data}) => {
+        if (data.key !== key) return;
+        if (data.type === "meta") {
+          meta = data.meta;textureValid = false;
+          if (!customCamera) fit(mode);
+        }
+        if (data.type === "progress") progress = data.progress;
+        if (data.type === "image" && meta) {
+          imageTime = data.t;lastDepths = data.image;textureValid = false;
+          if (activeView === "depth") { colorize(lastDepths); textureValid = true; }
+          if (data.mode === "solid") {
+            // Keep the worker's mesh even if the user switched views while it was in flight.
+            // That lets an unchanged future frame arrive with only the new time and depths.
+            solidError = data.error || "";
+            const mesh = data.mesh || solidFrame?.mesh;
+            if (mesh && !solidError) solidFrame = {stock,meta,t:data.t,mesh,depths:data.image};
+            if (onFrame && activeView === "solid") onFrame(solidError ? null : solidFrame);
+          }
+        }
+        reportStatus();
+        schedulePaint();
+      };
+      worker.onerror = event => {
+        error = "Depth preview unavailable" + (event.message ? " · " + event.message : "");
+        reportStatus();schedulePaint();
+      };
+    }
+    function configure() {
+      clearTimeout(configureTimer);configureTimer = undefined;
+      if (!job || !stock || !activeView || !configDirty) return;
+      try {
+        startWorker();
+        if (sourceChanged) {
+          const {count,xyz,kind,tool,spindle,endTime} = job;
+          worker.postMessage({type:"job", job:{count,xyz,kind,tool,spindle,endTime}});
+          sourceChanged = false;
+        }
+        worker.postMessage({type:"configure",key,stock,tools});
+        configDirty = false;progress = 0;meta = undefined;error = "";sentTime = -1;
+        worker.postMessage({type:"active",active:activeView});sendSeek();
+      } catch (e) {
+        error = "Could not start depth preview · " + e.message;
+        reportStatus();schedulePaint();
+      }
+    }
+    function dirty() {
+      key++;configDirty = true;textureValid = false;imageTime = -1;meta = undefined;progress = 0;
+      lastDepths = null;solidFrame = null;solidError = "";error = "";sentTime = -1;
+      if (onFrame) onFrame(null);
+      reportStatus();
+      clearTimeout(configureTimer);configureTimer = setTimeout(configure, 35);
+      schedulePaint();
+    }
+    function reportStatus() {
+      if (!onStatus) return;
+      let status = error;
+      if (!status && activeView === "solid") {
+        if (solidError) status = solidError;
+        else if (!meta) status = "Preparing stock simulation…";
+        else if (meta.unknown.length) status = "Missing cutter diameter for " + meta.unknown.map(i => "T" + i).join(", ") + ". Those cuts are omitted.";
+        else if (!meta.activeMoves) status = "No spindle-on feed intersects the stock.";
+        else if (!solidFrame) status = "Building stock surface… " + Math.round(progress * 100) + "%";
+      }
+      if (status !== lastStatus) { lastStatus = status; onStatus(status); }
+    }
+    const imageTexture = {img:null};
+    function colorize(depths) {
+      const {nx,ny,sx,sy} = meta;
+      if (texture.width !== nx || texture.height !== ny || !imageTexture.img) {
+        texture.width = nx;texture.height = ny;imageTexture.img = textureCtx.createImageData(nx,ny);
+      }
+      const raw = imageTexture.img.data;
+      for (let j = 0; j < ny; j++) {
+        let dst = (ny - 1 - j) * nx * 4;
+        for (let i = 0; i < nx; i++, dst += 4) {
+          const k = nx * j + i, d = depths[k], t = d / 65535;
+          if (d === 65535) {
+            raw[dst]=27;raw[dst+1]=39;raw[dst+2]=47;raw[dst+3]=255;continue;
+          }
+          const ddx = (depths[(i + 1 < nx) ? k + 1 : k] - depths[(i > 0) ? k - 1 : k]) * stock.h / (131070 * sx);
+          const ddy = (depths[(j + 1 < ny) ? k + nx : k] - depths[(j > 0) ? k - nx : k]) * stock.h / (131070 * sy);
+          const shade = 1 + .43 * (-.72 * ddx + .69 * ddy) / Math.sqrt(1 + ddx*ddx + ddy*ddy);
+          raw[dst] = (210 - 117*t)*shade; raw[dst+1] = (151 - 96*t)*shade;
+          raw[dst+2] = (108 - 63*t)*shade; raw[dst+3] = 255;
+        }
+      }
+      textureCtx.putImageData(imageTexture.img,0,0);
+    }
+    function schedulePaint() {
+      if (activeView !== "depth" || frame !== undefined) return;
+      frame = requestAnimationFrame(() => { frame = undefined; paint(); });
+    }
+    function stamp(t) {
+      const value = Math.max(0,Math.floor(t||0));
+      return String(Math.floor(value/3600)).padStart(2,"0")+":"+
+        String(Math.floor(value/60)%60).padStart(2,"0")+":"+String(value%60).padStart(2,"0");
+    }
+    function paint() {
+      if (activeView !== "depth") return;
+      width = container.clientWidth; height = container.clientHeight;
+      if (!width || !height) return;
+      const dpr = Math.min(window.devicePixelRatio || 1,2);
+      const bw = Math.round(width*dpr),bh = Math.round(height*dpr);
+      if(canvas.width!==bw||canvas.height!==bh){canvas.width=bw;canvas.height=bh;}
+      ctx.setTransform(dpr,0,0,dpr,0,0);
+      ctx.fillStyle = "#112029";ctx.fillRect(0,0,width,height);
+      const rect = viewRect(mode),dx = rect[2] - rect[0], dy = rect[3] - rect[1];
+      scale = Math.max(.001,Math.min(Math.max(40,width-100)/Math.max(.001,dx),Math.max(40,height-97)/Math.max(.001,dy))) * zoomFactor;
+      const px = x => width/2 + (x-cx)*scale, py = y => height/2 - (y-cy)*scale;
+      const gridNom = 70/scale;
+      const pow = Math.pow(10,Math.floor(Math.log10(gridNom)));
+      const grid = [1,2,5,10].find(s=>s>=gridNom/pow)*pow;
+      const left = cx-width/2/scale, right=cx+width/2/scale;
+      const front = cy-height/2/scale, back=cy+height/2/scale;
+      ctx.lineWidth = 1;ctx.strokeStyle="#25333c";ctx.beginPath();
+      for(let x = Math.ceil(left/grid)*grid;x<=right;x+=grid){ctx.moveTo(px(x),0);ctx.lineTo(px(x),height);}
+      for(let y = Math.ceil(front/grid)*grid;y<=back;y+=grid){ctx.moveTo(0,py(y));ctx.lineTo(width,py(y));}
+      ctx.stroke();
+      const sl = px(stock.x), st = py(stock.y+stock.w),sw=stock.l*scale,sh=stock.w*scale;
+      ctx.fillStyle="rgb(210,151,108)";ctx.fillRect(sl,st,sw,sh);
+      if (textureValid && meta) {
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(texture,px(meta.xmin),py(meta.ymax),(meta.xmax-meta.xmin)*scale,(meta.ymax-meta.ymin)*scale);
+      }
+      ctx.strokeStyle="#e4b58e";ctx.strokeRect(sl,st,sw,sh);
+      if (textureValid && imageTime >= 0 && job.count) {
+        let first=0, end=job.count;
+        while(first<end){const mid=(first+end)>>>1;if(job.endTime[mid]<=imageTime)first=mid+1;else end=mid;}
+        const i=Math.min(job.count-1,first),ta=i?job.endTime[i-1]:0,tb=job.endTime[i];
+        const t=tb>ta?Math.max(0,Math.min(1,(imageTime-ta)/(tb-ta))):1;
+        const off=i*6, coords=job.xyz;
+        const tx=px(coords[off]+(coords[off+3]-coords[off])*t);
+        const ty=py(coords[off+1]+(coords[off+4]-coords[off+1])*t);
+        const diameter=Number(tools[job.tool[i]]?.d)||0;
+        const radius=Math.max(2.5,diameter*scale/2);
+        ctx.save();ctx.strokeStyle=job.kind[i]===0?"#e7e5ce":"#f8fff7";ctx.lineWidth=1.4;
+        if(job.kind[i]===0)ctx.setLineDash([3,3]);
+        ctx.beginPath();ctx.arc(tx,ty,radius,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);
+        ctx.beginPath();ctx.moveTo(tx-3,ty);ctx.lineTo(tx+3,ty);ctx.moveTo(tx,ty-3);ctx.lineTo(tx,ty+3);ctx.stroke();ctx.restore();
+      }
+      const ox=px(0),oy=py(0);
+      ctx.strokeStyle="#a5ebd7";ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(ox-7,oy);ctx.lineTo(ox+13,oy);ctx.moveTo(ox,oy+7);ctx.lineTo(ox,oy-13);ctx.stroke();
+      ctx.font="11px system-ui,sans-serif";ctx.fillStyle="#e3fff2";
+      if (ox>=0 && ox<width-48 && oy>=12 && oy<height-36) ctx.fillText("X0 Y0",ox+7,oy+16);
+      const legendX=13,legendY=height-44;ctx.fillStyle="rgba(10,22,30,.91)";
+      ctx.fillRect(legendX,legendY,Math.min(width-26,354),34);ctx.font="11px system-ui,sans-serif";
+      ctx.fillStyle="#d2976c";ctx.fillRect(legendX+8,legendY+9,9,8);
+      ctx.fillStyle="#e6eef0";ctx.fillText("Stock top",legendX+22,legendY+18);
+      const ramp=ctx.createLinearGradient(legendX+88,0,legendX+141,0);
+      ramp.addColorStop(0,"rgb(210,151,108)");ramp.addColorStop(1,"rgb(93,55,45)");
+      ctx.fillStyle=ramp;ctx.fillRect(legendX+88,legendY+9,51,8);
+      ctx.fillStyle="#e6eef0";ctx.fillText(stock.h.toFixed(2)+" mm deep",legendX+144,legendY+18);
+      if (width>350) {ctx.fillStyle="#1b272f";ctx.fillRect(legendX+232,legendY+9,9,8);ctx.strokeStyle="#8b9a9e";ctx.strokeRect(legendX+232,legendY+9,9,8);ctx.fillStyle="#e6eef0";ctx.fillText("Through",legendX+249,legendY+18);}
+      const status = error || (!meta ? "Preparing depth preview…" :
+        !meta.activeMoves ? (meta.unknown.length?"No modelled cutter contacts the stock":"No spindle-on feed intersects the stock"):
+        (imageTime < 0 ? "Preparing stock surface" : "Cut depth at "+stamp(imageTime)) +
+        (progress<1?" · caching "+Math.floor(progress*100)+"%":"")+
+        (meta.unknown.length?" · skipped tools "+meta.unknown.map(i=>"T"+i).join(", "):""));
+      ctx.font="12px system-ui,sans-serif";
+      const statusWidth=Math.min(width-26,ctx.measureText(status).width+16);
+      ctx.fillStyle="rgba(10,22,30,.91)";ctx.fillRect(13,12,statusWidth,22);
+      ctx.fillStyle="#d8e5e7";ctx.fillText(status,21,27);
+      if(meta){
+        const small="Top view · "+Math.max(meta.sx,meta.sy).toFixed(2)+" mm grid";
+        ctx.font="10px system-ui,sans-serif";ctx.fillStyle="#c2cfd3";
+        ctx.fillText(small,21,height-16);
+      }
+    }
+    canvas.addEventListener("pointerdown",e=>{
+      cursorX=e.clientX;cursorY=e.clientY;canvas.setPointerCapture(e.pointerId);canvas.style.cursor="grabbing";
+    });
+    canvas.addEventListener("pointermove",e=>{
+      if(cursorX==null)return;
+      customCamera=true;cx-=(e.clientX-cursorX)/scale;cy+=(e.clientY-cursorY)/scale;
+      cursorX=e.clientX;cursorY=e.clientY;schedulePaint();
+    });
+    ["lostpointercapture","pointercancel","pointerup"].forEach(name=>canvas.addEventListener(name,()=>{cursorX=null;cursorY=null;canvas.style.cursor="grab";}));
+    canvas.addEventListener("wheel",e=>{e.preventDefault();const b=canvas.getBoundingClientRect();
+      zoom(Math.exp(-Math.max(-180,Math.min(180,e.deltaY))*.003),e.clientX-b.left,e.clientY-b.top);
+    },{passive:false});
+    canvas.addEventListener("dblclick",()=>fit("path"));
+    return {
+      setJob(next) {
+        if(job===next)return;job=next;sourceChanged=true;requested=0;customCamera=false;dirty();
+      },
+      setStock(next) {
+        const converted={};
+        for(const prop of ["x","y","z","l","w","h"])converted[prop]=Number(next[prop]);
+        if(!Object.values(converted).every(Number.isFinite)||[converted.l,converted.w,converted.h].some(s=>s<=0))return;
+        if(JSON.stringify(stock)===JSON.stringify(converted))return;stock=converted;dirty();
+      },
+      setTools(next) {if(JSON.stringify(tools)===JSON.stringify(next))return;tools=JSON.parse(JSON.stringify(next));dirty();},
+      setTime:seek,
+      setActive(view) {
+        const next = view === "solid" ? "solid" : (view ? "depth" : false);
+        if (next === activeView) return;
+        activeView = next;sentTime = -1;
+        if (next) {
+          if (next === "depth" && lastDepths && !textureValid) {colorize(lastDepths);textureValid=true;}
+          if (next === "solid" && onFrame) onFrame(solidFrame);
+          if(configDirty)configure();else if(worker){worker.postMessage({type:"active",active:next});sendSeek();}
+          schedulePaint();
+        } else if(worker)worker.postMessage({type:"active",active:false});
+        reportStatus();
+      },
+      fit,zoom,
+      destroy() {
+        observer.disconnect();clearTimeout(configureTimer);clearTimeout(seekTimer);cancelAnimationFrame(frame);
+        if(worker)worker.terminate();if(workerUrl)URL.revokeObjectURL(workerUrl);canvas.remove();
+      }
+    };
+  }
+  globalThis.NCCutMap = NCCutMap;
+  if (typeof module !== "undefined" && module.exports) module.exports = {buildStockEngine};
+})();
+</script>
+<script>/* A boundary mesh of the material below a three-axis milling height field.
+   The function is self-contained so it can be installed in the simulation worker. */
+function buildSolidMesh(stock, meta, depths) {
+  "use strict";
+  const {x, y, z, l, w, h} = stock;
+  const bounds = {min: [x, y, z], max: [x + l, y + w, z + h]};
+  const top = z + h, through = 65535, unit = h / through;
+  let positions = new Float32Array(3 * 2048);
+  let normals = new Float32Array(positions.length);
+  let indices = new Uint32Array(6 * 1024);
+  let vertexCount = 0, indexCount = 0;
+
+  function quadSpace() {
+    if ((vertexCount + 4) * 3 > positions.length) {
+      const p = new Float32Array(2 * positions.length), n = new Float32Array(p.length);
+      p.set(positions); n.set(normals); positions = p; normals = n;
+    }
+    if (indexCount + 6 > indices.length) {
+      const next = new Uint32Array(2 * indices.length);
+      next.set(indices); indices = next;
+    }
+    return vertexCount;
+  }
+  function vertex(px, py, pz, vx, vy, vz) {
+    const i = vertexCount++ * 3;
+    positions[i] = px; positions[i + 1] = py; positions[i + 2] = pz;
+    normals[i] = vx; normals[i + 1] = vy; normals[i + 2] = vz;
+  }
+  function quadIndices(i, first = true, second = true) {
+    if (first) { indices[indexCount++] = i; indices[indexCount++] = i + 1; indices[indexCount++] = i + 2; }
+    if (second) { indices[indexCount++] = i; indices[indexCount++] = i + 2; indices[indexCount++] = i + 3; }
+  }
+  function plane(x0, y0, x1, y1, pz, underside) {
+    const i = quadSpace(), nz = underside ? -1 : 1;
+    vertex(x0, y0, pz, 0, 0, nz);
+    vertex(underside ? x0 : x1, underside ? y1 : y0, pz, 0, 0, nz);
+    vertex(x1, y1, pz, 0, 0, nz);
+    vertex(underside ? x1 : x0, underside ? y0 : y1, pz, 0, 0, nz);
+    quadIndices(i);
+  }
+  function wall(x0, y0, x1, y1, low0, low1, high0, high1, vx, vy) {
+    const i = quadSpace();
+    vertex(x0, y0, low0, vx, vy, 0); vertex(x1, y1, low1, vx, vy, 0);
+    vertex(x1, y1, high1, vx, vy, 0); vertex(x0, y0, high0, vx, vy, 0);
+    quadIndices(i, high1 > low1, high0 > low0);
+  }
+  function result() {
+    return {positions: positions.slice(0, vertexCount * 3), normals: normals.slice(0, vertexCount * 3),
+      indices: indices.slice(0, indexCount), bounds};
+  }
+  let disturbed = false;
+  if (meta && depths) {
+    if (depths.length !== meta.nx * meta.ny) throw Error("Stock grid and depth frame sizes differ.");
+    for (let i = 0; i < depths.length; i++) if (depths[i]) { disturbed = true; break; }
+  }
+  if (!disturbed) {
+    plane(x, y, x + l, y + w, top, false); plane(x, y, x + l, y + w, z, true);
+    wall(x, y, x + l, y, z, z, top, top, 0, -1);
+    wall(x + l, y, x + l, y + w, z, z, top, top, 1, 0);
+    wall(x + l, y + w, x, y + w, z, z, top, top, 0, 1);
+    wall(x, y + w, x, y, z, z, top, top, -1, 0);
+    return result();
+  }
+
+  // The worker only samples the reachable portion. Include the untouched
+  // strips as coarse cells, so fitting the full stock still shows its real length.
+  function axis(min, max, lo, hi, slices) {
+    const leading = lo > min + (max - min) * 1e-10;
+    const trailing = hi < max - (max - min) * 1e-10;
+    const points = new Float64Array(slices + 1 + Number(leading) + Number(trailing));
+    for (let i = 0; i <= slices; i++) points[Number(leading) + i] = lo + (hi - lo) * i / slices;
+    points[0] = min; points[points.length - 1] = max;
+    return {points, offset: Number(leading)};
+  }
+  const ax = axis(x, x + l, meta.xmin, meta.xmax, meta.nx);
+  const ay = axis(y, y + w, meta.ymin, meta.ymax, meta.ny);
+  const xx = ax.points, yy = ay.points, nx = xx.length - 1, ny = yy.length - 1;
+  const count = nx * ny, values = new Uint16Array(count);
+  const sampled = new Uint8Array(count);
+  for (let j = 0; j < meta.ny; j++) {
+    const k = (j + ay.offset) * nx + ax.offset, i = j * meta.nx;
+    values.set(depths.subarray(i, i + meta.nx), k);
+    sampled.fill(1, k, k + meta.nx);
+  }
+
+  // Join nearby samples into a continuous surface across shallow slopes,
+  // preserving steep shoulders and keeping empty cells genuinely open. The
+  // four heights at a cell are stored CCW from its south-west corner.
+  const corners = new Float32Array(count * 4);
+  const adjacent = new Int32Array(4), root = new Int32Array(4);
+  const sums = new Float64Array(4), sizes = new Uint8Array(4);
+  const cellCorner = [2, 3, 0, 1];
+  function connect(a, b, limit) {
+    const ia = adjacent[a], ib = adjacent[b];
+    if (ia < 0 || ib < 0 || values[ia] === through || values[ib] === through) return;
+    const gap = Math.abs(values[ia] - values[ib]);
+    if (gap && (gap > limit || !sampled[ia] || !sampled[ib])) return;
+    while (root[a] !== a) a = root[a];
+    while (root[b] !== b) b = root[b];
+    root[b] = a;
+  }
+  const lipX = 1.75 * meta.sx / unit, lipY = 1.75 * meta.sy / unit;
+  for (let j = 0; j <= ny; j++) for (let i = 0; i <= nx; i++) {
+    const k = j * nx + i;
+    adjacent[0] = i && j ? k - nx - 1 : -1;
+    adjacent[1] = j && i < nx ? k - nx : -1;
+    adjacent[2] = j < ny && i < nx ? k : -1;
+    adjacent[3] = j < ny && i ? k - 1 : -1;
+    for (let s = 0; s < 4; s++) { root[s] = s; sums[s] = 0; sizes[s] = 0; }
+    connect(0, 1, lipX); connect(1, 2, lipY); connect(2, 3, lipX); connect(3, 0, lipY);
+    for (let s = 0; s < 4; s++) if (adjacent[s] >= 0) {
+      let leader = root[s]; while (leader !== root[leader]) leader = root[leader];
+      root[s] = leader; sums[leader] += values[adjacent[s]]; sizes[leader]++;
+    }
+    for (let s = 0; s < 4; s++) if (adjacent[s] >= 0) {
+      corners[4 * adjacent[s] + cellCorner[s]] = sums[root[s]] / sizes[root[s]];
+    }
+  }
+
+  function height(depth) { return top - depth * unit; }
+  const flat = new Int32Array(count), bottom = new Int32Array(count);
+  flat.fill(-1);
+  function slopeVertex(px, py, pz, dx, dy) {
+    const inv = 1 / Math.sqrt(1 + dx * dx + dy * dy);
+    vertex(px, py, pz, -dx * inv, -dy * inv, inv);
+  }
+  for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
+    const cell = j * nx + i, k = cell * 4;
+    if (values[cell] === through) { bottom[cell] = -1; continue; }
+    if (corners[k] === values[cell] && corners[k + 1] === values[cell] &&
+        corners[k + 2] === values[cell] && corners[k + 3] === values[cell]) {
+      flat[cell] = values[cell]; continue;
+    }
+    const z0 = height(corners[k]), z1 = height(corners[k + 1]);
+    const z2 = height(corners[k + 2]), z3 = height(corners[k + 3]);
+    const x0 = xx[i], x1 = xx[i + 1], y0 = yy[j], y1 = yy[j + 1];
+    const dx0 = (z1 - z0) / (x1 - x0), dx1 = (z2 - z3) / (x1 - x0);
+    const dy0 = (z3 - z0) / (y1 - y0), dy1 = (z2 - z1) / (y1 - y0);
+    const base = quadSpace();
+    slopeVertex(x0, y0, z0, dx0, dy0); slopeVertex(x1, y0, z1, dx0, dy1);
+    slopeVertex(x1, y1, z2, dx1, dy1); slopeVertex(x0, y1, z3, dx1, dy0);
+    quadIndices(base);
+  }
+  // Greedy rectangles make the flat face and underside inexpensive to render.
+  function mergePlanes(keys, underside) {
+    for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
+      const key = keys[j * nx + i]; if (key < 0) continue;
+      let endX = i + 1, endY = j + 1;
+      while (endX < nx && keys[j * nx + endX] === key) endX++;
+      rows: while (endY < ny) {
+        for (let n = i; n < endX; n++) if (keys[endY * nx + n] !== key) break rows;
+        endY++;
+      }
+      for (let n = j; n < endY; n++) keys.fill(-1, n * nx + i, n * nx + endX);
+      plane(xx[i], yy[j], xx[endX], yy[endY], underside ? z : height(key), underside);
+    }
+  }
+  mergePlanes(flat, false); mergePlanes(bottom, true);
+
+  // Connect the two top edges at sharp changes, holes and outer boundaries.
+  // If two piecewise heights cross, split at the crossing before orienting.
+  function seam(x0, y0, x1, y1, a, b, c, d, vx, vy) {
+    const da = c - a, db = d - b;
+    if (!da && !db) return;
+    if (da * db < 0) {
+      const t = da / (da - db), mid = a + (b - a) * t;
+      const px = x0 + (x1 - x0) * t, py = y0 + (y1 - y0) * t;
+      seam(x0, y0, px, py, a, mid, c, mid, vx, vy);
+      seam(px, py, x1, y1, mid, b, mid, d, vx, vy);
+    } else if (da > 0 || db > 0) {
+      wall(x0, y0, x1, y1, height(c), height(d), height(a), height(b), vx, vy);
+    } else {
+      wall(x1, y1, x0, y0, height(b), height(a), height(d), height(c), -vx, -vy);
+    }
+  }
+  for (let j = 0; j < ny; j++) for (let i = 0; i <= nx; i++) {
+    const left = 4 * (j * nx + i - 1), right = left + 4;
+    seam(xx[i], yy[j], xx[i], yy[j + 1], i ? corners[left + 1] : through,
+      i ? corners[left + 2] : through, i < nx ? corners[right] : through,
+      i < nx ? corners[right + 3] : through, 1, 0);
+  }
+  for (let j = 0; j <= ny; j++) for (let i = 0; i < nx; i++) {
+    const north = 4 * (j * nx + i), south = north - 4 * nx;
+    seam(xx[i + 1], yy[j], xx[i], yy[j], j ? corners[south + 2] : through,
+      j ? corners[south + 3] : through, j < ny ? corners[north + 1] : through,
+      j < ny ? corners[north] : through, 0, 1);
+  }
+  return result();
+}
+globalThis.buildSolidMesh = buildSolidMesh;
+if (typeof module !== "undefined" && module.exports) module.exports = {buildSolidMesh};
+</script>
+<script>/* Remaining material in work coordinates. Both renderers depth-test the same closed mesh. */
+(function () {
+  'use strict';
+  const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
+  const dot = (a, b) => a[0]*b[0] + a[1]*b[1] + a[2]*b[2];
+  const unit = v => {const n=Math.hypot(...v)||1; return v.map(a=>a/n);};
+  const lamp = unit([-.52,-.56,.76]), fill = unit([.60,.56,.59]);
+  const basis = (yaw, elevation) => {
+    const c=Math.cos(yaw),s=Math.sin(yaw),ce=Math.cos(elevation),se=Math.sin(elevation);
+    return {right:[c,s,0], up:[-s*se,c*se,ce], eye:[s*ce,-c*ce,se]};
+  };
+  const NEUTRAL = {x:0,y:0,z:-1,l:1,w:1,h:1};
+  const clock = t => {
+    const s=Math.floor(Math.max(0,t)), h=Math.floor(s/3600),m=Math.floor(s/60)%60;
+    return (h?h+':':'')+(h?String(m).padStart(2,'0'):m)+':'+String(s%60).padStart(2,'0');
+  };
+
+  function supportedProgram(gl,version2) {
+    const prefix=version2?'#version 300 es\n':'';
+    const attr=version2?'in':'attribute', vo=version2?'out':'varying', fi=version2?'in':'varying';
+    const vert=prefix+'precision highp float;\n'+attr+' vec3 aPosition; '+attr+' vec3 aNormal;\n'+
+      vo+' vec3 world; '+vo+' vec3 normal;\n'+
+      'uniform vec3 center, rowX, rowY, rowZ; uniform vec2 pan;\n'+
+      'void main(){world=aPosition;normal=aNormal;vec3 v=aPosition-center;gl_Position=vec4(dot(v,rowX)+pan.x,dot(v,rowY)+pan.y,dot(v,rowZ),1.0);}';
+    const sample=version2?'texture':'texture2D';
+    const frag=prefix+'precision highp float;\n'+fi+' vec3 world; '+fi+' vec3 normal;\n'+
+      (version2?'out vec4 outColor;\n':'')+
+      'uniform vec3 eye, light1, light2; uniform vec4 crop, stockRect; uniform vec2 bottomHeight; uniform float relief; uniform sampler2D field;\n'+
+      'float heightAt(vec2 xy){ if(any(lessThan(xy,stockRect.xy))||any(greaterThan(xy,stockRect.zw)))return bottomHeight.x;'+
+      'vec2 uv=(xy-crop.xy)/crop.zw; if(any(lessThan(uv,vec2(0.)))||any(greaterThan(uv,vec2(1.))))return bottomHeight.x+bottomHeight.y;'+
+      'return bottomHeight.x+bottomHeight.y*(1.-'+sample+'(field,uv).r);}\n'+
+      'float blocker(vec2 shift,float reach){return clamp((heightAt(world.xy+shift)-world.z)/reach,0.,1.);}\n'+
+      'void main(){vec3 n=normalize(normal);float high=clamp((world.z-bottomHeight.x)/bottomHeight.y,0.,1.);'+
+      'float reach=clamp(bottomHeight.y*.13,.20,1.10);vec2 a=vec2(reach,0.),b=a.yx;'+
+      'float ao=relief*(blocker(a,reach)+blocker(-a,reach)+blocker(b,reach)+blocker(-b,reach))*.25;'+
+      'float key=max(dot(n,light1),0.),soft=max(dot(n,light2),0.);'+
+      'float gloss=pow(max(dot(n,normalize(light1+eye)),0.),32.)*.24+pow(max(dot(n,normalize(light2+eye)),0.),63.)*.10;'+
+      'float lit=(.43+.51*key+.17*soft+.045*max(n.z,0.))*(.88+.12*high)*(1.-.34*ao);'+
+      'vec3 metal=vec3(.86,.535,.355)*lit+vec3(.98,.79,.60)*gloss;'+
+      (version2?'outColor':'gl_FragColor')+'=vec4(metal,1.);}';
+    const program=gl.createProgram(), attached=[];
+    try {
+      for(const [type,code] of [[gl.VERTEX_SHADER,vert],[gl.FRAGMENT_SHADER,frag]]) {
+        const shader=gl.createShader(type);attached.push(shader);gl.shaderSource(shader,code);gl.compileShader(shader);
+        if(!gl.getShaderParameter(shader,gl.COMPILE_STATUS))throw Error(gl.getShaderInfoLog(shader));
+        gl.attachShader(program,shader);
+      }
+      gl.linkProgram(program);
+      if(!gl.getProgramParameter(program,gl.LINK_STATUS))throw Error(gl.getProgramInfoLog(program));
+      return program;
+    } catch(e) {gl.deleteProgram(program);throw e;} finally {for(const s of attached)gl.deleteShader(s);}
+  }
+
+  function gpu(canvas) {
+    const options={alpha:true,depth:true,antialias:true,premultipliedAlpha:false};
+    let gl=canvas.getContext('webgl2',options);
+    const version2=!!gl;
+    if(!gl)gl=canvas.getContext('webgl',options);
+    if(!gl||(!version2&&!gl.getExtension('OES_element_index_uint')))return null;
+    const pg=supportedProgram(gl,version2), buffers=[gl.createBuffer(),gl.createBuffer(),gl.createBuffer()];
+    const tex=gl.createTexture(), A=['aPosition','aNormal'].map(n=>gl.getAttribLocation(pg,n)), u={};
+    for (const name of ['center','rowX','rowY','rowZ','pan','eye','light1','light2','crop','stockRect','bottomHeight','relief','field'])
+      u[name]=gl.getUniformLocation(pg,name);
+    gl.useProgram(pg);gl.clearColor(0,0,0,0);gl.enable(gl.DEPTH_TEST);gl.depthFunc(gl.LEQUAL);
+    gl.bindTexture(gl.TEXTURE_2D,tex);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);gl.pixelStorei(gl.UNPACK_ALIGNMENT,1);
+    let uploaded, tint=new Uint8Array(1);
+    function draw(frame,cam,stock) {
+      gl.viewport(0,0,canvas.width,canvas.height);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+      if(!frame?.mesh)return;
+      const {mesh,meta,depths}=frame;
+      gl.useProgram(pg);
+      if(uploaded!==frame) {
+        for(const [i,arr] of [mesh.positions,mesh.normals].entries()){
+          gl.bindBuffer(gl.ARRAY_BUFFER,buffers[i]);gl.bufferData(gl.ARRAY_BUFFER,arr,gl.DYNAMIC_DRAW);
+        }
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,buffers[2]);gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,mesh.indices,gl.DYNAMIC_DRAW);
+        const has=!!(meta&&depths&&depths.length===meta.nx*meta.ny);
+        if(has){if(tint.length!==depths.length)tint=new Uint8Array(depths.length);
+          for(let i=0;i<tint.length;i++)tint[i]=Math.round(depths[i]/257);}
+        gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,tex);
+        gl.texImage2D(gl.TEXTURE_2D,0,version2?gl.R8:gl.LUMINANCE,has?meta.nx:1,has?meta.ny:1,0,
+          version2?gl.RED:gl.LUMINANCE,gl.UNSIGNED_BYTE,has?tint:new Uint8Array(1));
+        gl.uniform1f(u.relief,has?1:0);gl.uniform1i(u.field,0);
+        gl.uniform4f(u.crop,has?meta.xmin:stock.x,has?meta.ymin:stock.y,has?meta.xmax-meta.xmin:stock.l,has?meta.ymax-meta.ymin:stock.w);
+        uploaded=frame;
+      }
+      for(let i=0;i<2;i++){gl.bindBuffer(gl.ARRAY_BUFFER,buffers[i]);gl.enableVertexAttribArray(A[i]);gl.vertexAttribPointer(A[i],3,gl.FLOAT,false,0,0);}
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,buffers[2]);
+      const {right,up,eye}=cam;
+      gl.uniform3fv(u.center,cam.center);gl.uniform3fv(u.rowX,right.map(v=>v*2*cam.scale/cam.w));
+      gl.uniform3fv(u.rowY,up.map(v=>v*2*cam.scale/cam.h));gl.uniform3fv(u.rowZ,eye.map(v=>-v/cam.range));
+      gl.uniform2f(u.pan,2*cam.pan[0]/cam.w,-2*cam.pan[1]/cam.h);
+      gl.uniform3fv(u.eye,eye);gl.uniform3fv(u.light1,lamp);gl.uniform3fv(u.light2,fill);
+      gl.uniform4f(u.stockRect,stock.x,stock.y,stock.x+stock.l,stock.y+stock.w);gl.uniform2f(u.bottomHeight,stock.z,stock.h);
+      gl.drawElements(gl.TRIANGLES,mesh.indices.length,gl.UNSIGNED_INT,0);
+    }
+    return {draw,release:()=>{uploaded=undefined;},destroy:()=>{buffers.forEach(b=>gl.deleteBuffer(b));gl.deleteTexture(tex);gl.deleteProgram(pg);}};
+  }
+
+  /* Painter sorting incorrectly fills through-holes in a tilted bar. The software fallback
+     rasterizes front-facing triangles with per-pixel depth, including the exposed underside. */
+  function rasterize(frame, cam, stock, image, zbuffer, reusable={}) {
+    const {width:w,height:h,data:rgba}=image;
+    const pixels=new Uint32Array(rgba.buffer,rgba.byteOffset,rgba.length/4);
+    pixels.fill(0);zbuffer.fill(-Infinity);
+    if(!frame?.mesh)return;
+    const {positions:p,normals:n,indices}=frame.mesh;
+    if(!indices.length)return;
+    if(!reusable.s||reusable.s.length!==p.length){reusable.s=new Float32Array(p.length);reusable.light=new Float32Array(p.length);}
+    const sv=reusable.s,colors=reusable.light, H1=unit(lamp.map((v,i)=>v+cam.eye[i])),H2=unit(fill.map((v,i)=>v+cam.eye[i]));
+    const sx=cam.scale*w/cam.w, sy=cam.scale*h/cam.h, ox=(.5+cam.pan[0]/cam.w)*w,oy=(.5+cam.pan[1]/cam.h)*h;
+    const {right,up,eye,center}=cam;
+    const {meta,depths}=frame, reach=clamp(stock.h*.13,.2,1.1);
+    function sampledZ(x,y){
+      if(x<stock.x||x>stock.x+stock.l||y<stock.y||y>stock.y+stock.w)return stock.z;
+      if(x<meta.xmin||y<meta.ymin||x>=meta.xmax||y>=meta.ymax)return stock.z+stock.h;
+      const ix=Math.min(meta.nx-1,Math.floor((x-meta.xmin)/meta.sx)),iy=Math.min(meta.ny-1,Math.floor((y-meta.ymin)/meta.sy));
+      return stock.z+(1-depths[iy*meta.nx+ix]/65535)*stock.h;
+    }
+    for(let k=0;k<p.length;k+=3) {
+      const x=p[k]-center[0],y=p[k+1]-center[1],z=p[k+2]-center[2];
+      sv[k]=ox+(x*right[0]+y*right[1])*sx;sv[k+1]=oy-(x*up[0]+y*up[1]+z*up[2])*sy;
+      sv[k+2]=x*eye[0]+y*eye[1]+z*eye[2];
+      const a=n[k],b=n[k+1],c=n[k+2];
+      const key=Math.max(0,a*lamp[0]+b*lamp[1]+c*lamp[2]),soft=Math.max(0,a*fill[0]+b*fill[1]+c*fill[2]);
+      let ao=0;
+      if(depths&&meta&&p[k+2]<stock.z+stock.h-.002){
+        const u=p[k],v=p[k+1],e=p[k+2];
+        ao=(clamp((sampledZ(u+reach,v)-e)/reach,0,1)+clamp((sampledZ(u-reach,v)-e)/reach,0,1)+
+          clamp((sampledZ(u,v+reach)-e)/reach,0,1)+clamp((sampledZ(u,v-reach)-e)/reach,0,1))*.25;
+      }
+      const gloss=Math.pow(Math.max(0,a*H1[0]+b*H1[1]+c*H1[2]),32)*.24+Math.pow(Math.max(0,a*H2[0]+b*H2[1]+c*H2[2]),63)*.10;
+      const bright=(.43+.51*key+.17*soft+.045*Math.max(c,0))*(.88+.12*clamp((p[k+2]-stock.z)/stock.h,0,1))*(1-.34*ao);
+      colors[k]=255*clamp(.86*bright+.98*gloss,0,1);colors[k+1]=255*clamp(.535*bright+.79*gloss,0,1);colors[k+2]=255*clamp(.355*bright+.60*gloss,0,1);
+    }
+    for(let j=0;j<indices.length;j+=3){
+      const a=3*indices[j],b=3*indices[j+1],c=3*indices[j+2];
+      const ax=sv[a],ay=sv[a+1],bx=sv[b],by=sv[b+1],cx=sv[c],cy=sv[c+1];
+      const dx1=bx-ax,dy1=by-ay,dx2=cx-ax,dy2=cy-ay,area=dx1*dy2-dy1*dx2;
+      if(area>=-1e-9)continue;
+      const x0=Math.max(0,Math.ceil(Math.min(ax,bx,cx)-.5)),x1=Math.min(w-1,Math.floor(Math.max(ax,bx,cx)-.5));
+      const y0=Math.max(0,Math.ceil(Math.min(ay,by,cy)-.5)),y1=Math.min(h-1,Math.floor(Math.max(ay,by,cy)-.5));
+      if(x1<x0||y1<y0)continue;
+      const inv=1/area, uStep=dy2*inv, vStep=-dy1*inv;
+      const dz1=sv[b+2]-sv[a+2],dz2=sv[c+2]-sv[a+2];
+      const r0=colors[a],g0=colors[a+1],blue0=colors[a+2];
+      const dr1=colors[b]-r0,dr2=colors[c]-r0,dg1=colors[b+1]-g0,dg2=colors[c+1]-g0,db1=colors[b+2]-blue0,db2=colors[c+2]-blue0;
+      for(let iy=y0;iy<=y1;iy++){
+        const dy=iy+.5-ay,xstart=x0+.5-ax;
+        let u=(xstart*dy2-dy*dx2)*inv,v=(dy*dx1-xstart*dy1)*inv,at=iy*w+x0;
+        for(let ix=x0;ix<=x1;ix++,at++,u+=uStep,v+=vStep){
+          if(u<-1e-6||v<-1e-6||u+v>1.000001)continue;
+          const depth=sv[a+2]+u*dz1+v*dz2;if(depth<zbuffer[at])continue;
+          zbuffer[at]=depth;
+          const red=(r0+u*dr1+v*dr2+.5)|0,green=(g0+u*dg1+v*dg2+.5)|0,blue=(blue0+u*db1+v*db2+.5)|0;
+          pixels[at]=(255<<24)|(blue<<16)|(green<<8)|red;
+        }
+      }
+    }
+  }
+
+  function software(canvas){
+    const ctx=canvas.getContext('2d');if(!ctx)return null;
+    let image,depth,cache={};
+    return {draw(frame,cam,stock){
+      if(!image||image.width!==canvas.width||image.height!==canvas.height){
+        image=ctx.createImageData(canvas.width,canvas.height);depth=new Float32Array(canvas.width*canvas.height);
+      }
+      rasterize(frame,cam,stock,image,depth,cache);ctx.putImageData(image,0,0);
+    },release(){cache={};},destroy(){image=depth=null;cache={};}};
+  }
+
+  class NCSolidRenderer {
+    constructor(host,{onStatus}={}){
+      this.host=host;this.onStatus=onStatus;
+      this.stock={...NEUTRAL};this.frame=null;this.meta=null;this.requested=0;this.active=false;
+      this.mode='path';this.focus=null;this.pan=[0,0];this.factor=1;
+      this.yaw=-.52;this.elevation=.65;this.fitAxes=basis(this.yaw,this.elevation);this.activeJob=null;this.notice='';
+      host.style.background='radial-gradient(ellipse at 45% 30%, #293843 0%, #1c2b35 47%, #111d25 100%)';
+      this.blank={mesh:null,t:0};
+      const createCanvas=()=>{
+        const c=document.createElement('canvas');
+        c.style.cssText='display:block;width:100%;height:100%;touch-action:none;cursor:grab';
+        c.setAttribute('aria-label','Rotatable three-dimensional model of the remaining stock');return c;
+      };
+      this.canvas=createCanvas();this.usingCPU=false;
+      try{this.output=gpu(this.canvas);}catch(e){this.output=null;}
+      if(!this.output){this.canvas=createCanvas();this.output=software(this.canvas);this.usingCPU=true;}
+      host.append(this.canvas);this.available=!!this.output;this.bindInput();
+      this.canvas.addEventListener('webglcontextlost',e=>{
+        e.preventDefault();
+        const next=createCanvas();this.canvas.replaceWith(next);this.canvas=next;this.usingCPU=true;this.output=software(next);this.available=!!this.output;
+        this.bindInput();this.schedule();
+      });
+      this.hud=document.createElement('div');
+      this.hud.style.cssText='position:absolute;bottom:12px;left:12px;max-width:calc(100% - 93px);font:11px/1.4 system-ui,sans-serif;letter-spacing:.01em;color:#e8eeef;padding:6px 9px;border:1px solid #47545d;border-radius:5px;pointer-events:none;background:rgba(17,29,37,.92);white-space:normal;';
+      this.hint=document.createElement('div');this.hint.style.cssText='font:10px/1.4 system-ui,sans-serif;color:#b6c3ca;';
+      this.hint.textContent='Drag to orbit · Shift-drag to pan · Scroll to zoom';
+      this.status=document.createElement('div');this.hud.append(this.status,this.hint);host.append(this.hud);
+      this.axes=document.createElement('canvas');this.axes.style.cssText='position:absolute;bottom:7px;right:8px;width:69px;height:59px;pointer-events:none;';
+      this.axes.setAttribute('aria-hidden','true');host.append(this.axes);
+      this.observer=new ResizeObserver(()=>this.schedule());this.observer.observe(host);
+      this.setStock(this.stock);
+    }
+    setStock(stock){
+      if(this.blank.mesh&&['x','y','z','l','w','h'].every(k=>this.stock[k]===stock[k]))return;
+      this.stock={...stock};this.blank={mesh:globalThis.buildSolidMesh(this.stock,null,null),t:0};
+      this.reset();this.focus=null;this.schedule();
+    }
+    setJob(job){this.activeJob=job;this.reset();this.requested=0;this.fit('path');}
+    reset(){this.frame=null;this.meta=null;this.notice='';this.output?.release();this.schedule();}
+    setFrame(frame){
+      if(!frame){this.reset();return;}if(!frame.mesh)return;
+      this.frame=frame;this.setMeta(frame.meta);
+      this.schedule();
+    }
+    setMeta(meta){this.meta=meta;this.schedule();}
+    setStatus(message){const next=String(message||'');if(next===this.notice)return;this.notice=next;this.updateHud();}
+    setTime(time){const previous=this.requested;this.requested=Math.max(0,Number(time)||0);
+      if(this.requested===0||previous===0)this.schedule();else if(this.active)this.updateHud();}
+    setActive(yes){this.active=!!yes;if(this.active)this.schedule();}
+    fit(mode){this.mode=mode==='stock'?'stock':'path';this.focus=null;this.factor=1;this.pan=[0,0];this.fitAxes=basis(this.yaw,this.elevation);this.schedule();}
+    zoom(factor,px=0,py=0){
+      if(!Number.isFinite(factor)||factor<=0)return;
+      const f=clamp(this.factor*factor,.035,100),r=f/this.factor;
+      this.pan=[px+(this.pan[0]-px)*r,py+(this.pan[1]-py)*r];
+      this.factor=f;this.schedule();
+    }
+    fitBounds(){
+      const s=this.stock,m=this.meta,b=this.activeJob?.bounds;
+      let x=s.x,y=s.y,x1=s.x+s.l,y1=s.y+s.w;
+      if(this.mode==='path'){
+        if(m?.activeMoves){x=m.xmin;y=m.ymin;x1=m.xmax;y1=m.ymax;}
+        else if(!m&&b){const ix=Math.max(x,b.min[0]),iy=Math.max(y,b.min[1]),ix1=Math.min(x1,b.max[0]),iy1=Math.min(y1,b.max[1]);
+          if(ix1>ix&&iy1>iy){x=ix;y=iy;x1=ix1;y1=iy1;}}
+      }
+      return [x,y,s.z,x1,y1,s.z+s.h];
+    }
+    camera(){
+      const b=this.focus||this.fitBounds(),w=this.host.clientWidth||1,h=this.host.clientHeight||1;
+      const cam=basis(this.yaw,this.elevation),size=[b[3]-b[0],b[4]-b[1],b[5]-b[2]];
+      // Measure the exact silhouette in the fit orientation, then keep scale stable while orbiting.
+      const extent=axis=>Math.max(.001,size[0]*Math.abs(axis[0])+size[1]*Math.abs(axis[1])+size[2]*Math.abs(axis[2]));
+      const scale=Math.max(.001,Math.min(Math.max(16,w-76)/extent(this.fitAxes.right),
+        Math.max(16,h-108)/extent(this.fitAxes.up)))*this.factor;
+      const s=this.stock;cam.center=size.map((d,i)=>b[i]+d*.5);cam.range=Math.hypot(s.l,s.w,s.h)*1.5+1;
+      return Object.assign(cam,{w,h,scale,pan:this.pan});
+    }
+    updateHud(){
+      if(!this.status||!this.active)return;
+      const f=this.requested===0?this.blank:(this.frame||this.blank), shown=f.t??0,m=this.meta;
+      let msg;
+      if(!this.available)msg='3D rendering unavailable. Choose Cut depth.';
+      else if(this.notice&&/fail|unavail|could not|error/i.test(this.notice))msg=this.notice;
+      else {
+        const done=!!this.frame||this.requested===0;
+        msg=done?(shown===0?'Uncut stock':'Remaining stock at '+clock(shown)):'Showing uncut stock';
+        if(!done||Math.abs(shown-this.requested)>.18)msg+=' · updating to '+clock(this.requested);
+        if(m&&!m.activeMoves&&!(m.unknown||[]).length&&!this.notice)msg+=' · no cutting contact';
+        if(m?.unknown?.length&&!this.notice)msg+=' · unmodeled '+m.unknown.map(t=>t?'T'+t:'tool').join(', ');
+        if(this.frame&&shown===this.frame.t&&!this.frame.mesh.indices.length)msg+=' · all material removed';
+        if(this.notice&&!/prepar|cache|updat|ready/i.test(this.notice))msg+=' · '+this.notice;
+      }
+      if(this.status.textContent!==msg){this.status.textContent=msg;this.onStatus?.(msg);}
+    }
+    drawAxes(cam){
+      const c=this.axes, d=Math.min(2,window.devicePixelRatio||1),ctx=c.getContext('2d');
+      if(!ctx)return;if(c.width!==Math.round(69*d)||c.height!==Math.round(59*d)){c.width=Math.round(69*d);c.height=Math.round(59*d);}
+      ctx.setTransform(d,0,0,d,0,0);ctx.clearRect(0,0,69,59);ctx.font='600 10px system-ui,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.lineWidth=1.6;
+      const ox=32,oy=29;
+      for(const [i,letter,color] of [[0,'X','#eaa393'],[1,'Y','#a1d4ae'],[2,'Z','#a2c6eb']]){
+        const x=cam.right[i],y=-cam.up[i];if(x*x+y*y<.015)continue;
+        ctx.strokeStyle=ctx.fillStyle=color;ctx.beginPath();ctx.moveTo(ox,oy);ctx.lineTo(ox+17*x,oy+17*y);ctx.stroke();
+        ctx.fillText(letter,ox+24*x,oy+24*y);
+      }
+    }
+    draw(){
+      if(!this.active)return;
+      const cam=this.camera();if(cam.w<=1||cam.h<=1)return;
+      const dpr=window.devicePixelRatio||1;
+      const d=this.usingCPU?Math.min(dpr,1.1,Math.sqrt(680000/(cam.w*cam.h))):Math.min(dpr,2);
+      const w=Math.max(1,Math.round(cam.w*d)),h=Math.max(1,Math.round(cam.h*d));
+      if(this.canvas.width!==w||this.canvas.height!==h){this.canvas.width=w;this.canvas.height=h;}
+      const frame=this.requested===0?this.blank:(this.frame||this.blank);
+      this.output?.draw(frame,cam,this.stock);this.drawAxes(cam);this.updateHud();
+    }
+    schedule(){if(this.active&&!this.raf)this.raf=requestAnimationFrame(()=>{this.raf=0;this.draw();});}
+    bindInput(){
+      const c=this.canvas,pointers=new Map();let drag=null,pinch=null;
+      c.addEventListener('contextmenu',e=>e.preventDefault());
+      c.addEventListener('pointerdown',e=>{
+        if(e.button>2)return;c.setPointerCapture(e.pointerId);pointers.set(e.pointerId,[e.clientX,e.clientY]);
+        drag={id:e.pointerId,x:e.clientX,y:e.clientY,pan:e.shiftKey||e.button!==0};c.style.cursor='grabbing';
+        if(pointers.size===2){const [a,b]=[...pointers.values()];pinch={x:(a[0]+b[0])*.5,y:(a[1]+b[1])*.5,d:Math.hypot(a[0]-b[0],a[1]-b[1])};}
+      });
+      c.addEventListener('pointermove',e=>{
+        if(!pointers.has(e.pointerId))return;pointers.set(e.pointerId,[e.clientX,e.clientY]);
+        if(!this.focus)this.focus=this.fitBounds();
+        if(pinch&&pointers.size===2){
+          const [a,b]=[...pointers.values()],x=(a[0]+b[0])*.5,y=(a[1]+b[1])*.5,d=Math.hypot(a[0]-b[0],a[1]-b[1]),r=c.getBoundingClientRect();
+          if(d>1&&pinch.d>1)this.zoom(d/pinch.d,pinch.x-r.left-r.width/2,pinch.y-r.top-r.height/2);
+          this.pan[0]+=x-pinch.x;this.pan[1]+=y-pinch.y;pinch={x,y,d};
+        }else if(drag&&drag.id===e.pointerId){
+          const dx=e.clientX-drag.x,dy=e.clientY-drag.y;drag.x=e.clientX;drag.y=e.clientY;
+          if(drag.pan){this.pan[0]+=dx;this.pan[1]+=dy;}else{this.yaw-=dx*.008;this.elevation=clamp(this.elevation+dy*.008,-Math.PI/2,Math.PI/2);}
+        }this.schedule();
+      });
+      const end=e=>{if(!pointers.delete(e.pointerId))return;pinch=null;drag=null;if(pointers.size===1){const [id,p]=[...pointers][0];drag={id,x:p[0],y:p[1],pan:false};}else c.style.cursor='grab';};
+      for(const event of ['pointercancel','pointerup','lostpointercapture'])c.addEventListener(event,end);
+      c.addEventListener('wheel',e=>{e.preventDefault();if(!this.focus)this.focus=this.fitBounds();const r=c.getBoundingClientRect();
+        this.zoom(Math.exp(-clamp(e.deltaY*(e.deltaMode===1?16:1),-300,300)*.002),e.clientX-r.left-r.width/2,e.clientY-r.top-r.height/2);
+      },{passive:false});
+      c.addEventListener('dblclick',()=>this.fit('path'));
+    }
+    destroy(){this.observer.disconnect();if(this.raf)cancelAnimationFrame(this.raf);this.output?.destroy();this.hud.remove();this.axes.remove();this.canvas.remove();}
+  }
+  globalThis.NCSolidRenderer=NCSolidRenderer;
+  if(typeof module!=='undefined'&&module.exports)module.exports={NCSolidRenderer,rasterize,basis};
+})();
+</script>
+<script>(() => {
+  'use strict';
+  const by = id => document.getElementById(id);
+  const el = (tag, cls, text) => { const node = document.createElement(tag); if (cls) node.className = cls; if (text !== undefined) node.textContent = text; return node; };
+  const palette = ['#a9bdcf','#42c7b1','#c89bff','#dac96e','#f0aa68','#69acff','#ee8e9d','#87c3a3'];
+  const color = t => palette[t % palette.length];
+  const colors = t => { const x = el('i','dot'); x.style.background = color(t); return x; };
+  const clamp = (x,a,b) => Math.max(a,Math.min(b,x));
+  const fmt = n => Number.isFinite(n) ? (Math.abs(n)<.0005?0:n).toFixed(3) : '—';
+  const clock = value => { const sec=Math.floor(Math.max(0,value)); return (sec>=3600?Math.floor(sec/3600)+':':'')+String(Math.floor(sec/60)%60).padStart(2,'0')+':'+String(sec%60).padStart(2,'0'); };
+  const option = (name,value) => new Option(name,String(value));
+  const on = (id,event,fn) => by(id).addEventListener(event,fn);
+  const stockKeys=['l','w','h','x','y','z'];
+  const flags={rapid:true,future:true,stock:true,grid:true,markers:true,tool:true};
+  const flagNames={rapid:'Rapids',future:'Future paths',stock:'Stock',grid:'Grid',markers:'Entry markers',tool:'Cutter'};
+  let job=null, source='', starts=null, ticket=0, playing=false, lastTick=0, time=0, view='solid', seq=[], stageNodes=[], lastLine=0, contact=null, entry=null, stageId=-1, stock={}, cutTools={}, dragCount=0, loadState=false;
+  function notice(title,msg) { by('msgtitle').textContent=title; by('msgtext').textContent=msg; by('msg').showModal(); }
+  function busy(text) { by('busy').hidden=!text; if(text) by('busy').firstElementChild.textContent=text; }
+  const path=new NCRenderer(by('path-surface'),{onViewChange:name=>{
+    by('path-angle').value=name==='orbit'?'iso':name;
+  }});
+  let solid;
+  try { solid=new NCSolidRenderer(by('solid-surface')); }
+  catch (error) { console.warn('Solid preview unavailable',error); }
+  const hasSolid=Boolean(solid && solid.available!==false);
+  const cut=new NCCutMap(by('depth-surface'),{
+    onFrame:frame=>{if(hasSolid)solid.setFrame(frame);},
+    onStatus:message=>{if(hasSolid)solid.setStatus(message);}
+  });
+  function updateViewTime(){
+    if(view==='solid')solid.setTime(time);
+    if(view==='path')path.setTime(time);
+    else cut.setTime(time);
+  }
+  function setView(name) {
+    view=name==='solid'&&!hasSolid?'depth':name;
+    by('solid-surface').hidden=view!=='solid';
+    by('depth-surface').hidden=view!=='depth';
+    by('path-surface').hidden=view!=='path';
+    by('view-tag').hidden=view!=='path';
+    by('path-angle').hidden=view!=='path';
+    by('solid-fallback').hidden=hasSolid||view!=='depth';
+    if(hasSolid)solid.setActive(view==='solid');
+    updateViewTime();
+    cut.setActive(view==='path'?false:view);
+    document.querySelectorAll('[data-view]').forEach(button=>{
+      const active=button.dataset.view===view;
+      button.classList.toggle('on',active);
+      button.setAttribute('aria-pressed',String(active));
+    });
+  }
+  function activeRenderer(){return view==='solid'?solid:(view==='depth'?cut:path);}
+  function setTab(setup) { by('job-panel').hidden=setup;by('setup-panel').hidden=!setup;by('job-tab').classList.toggle('on',!setup);by('setup-tab').classList.toggle('on',setup); }
+  function inSegment(t) { let a=0,b=job.count;while(a<b){const m=(a+b)>>>1;if(job.endTime[m]<=t)a=m+1;else b=m;}return Math.min(job.count-1,a); }
+  function nearestStage(items,t) {let lo=0,hi=items.length;while(lo<hi){const m=(lo+hi)>>>1;if(items[m].time<=t)lo=m+1;else hi=m;}return Math.max(0,lo-1);}
+  function startSec(i){return i>0?job.endTime[i-1]:0;}
+  function point(i,f){const p=6*i;return [0,1,2].map(k=>job.xyz[p+k]+(job.xyz[p+k+3]-job.xyz[p+k])*f);}
+  function toolData(j){const t=j.tool;return j.tools.length?j.tools:(t.length?[t[0]]:[]);}
+  function lineNumber(n){if(!starts||n<1||n>starts.length) return '';const e=n<starts.length?starts[n]-1:source.length;return source.slice(starts[n-1],Math.min(e,starts[n-1]+230)).trimEnd();}
+  function indexLines(s){const positions=new Int32Array((job.lineCount||1)+1);let count=1;for(let i=s.indexOf('\n');i>=0;i=s.indexOf('\n',i+1))positions[count++]=i+1;return positions.subarray(0,count);}
+  function drawSource(n){if(n===lastLine)return;lastLine=n;const pane=by('linecode');pane.replaceChildren();for(let i=Math.max(1,n-1);i<=Math.min(n+1,starts.length);i++){const row=el('div',i===n?'now':'',String(i).padStart(5,' ')+'  '+lineNumber(i));pane.append(row);} }
+  function seek(value) {
+    if(!job?.count){
+      time=0;by('progress').value='0';by('progress').setAttribute('aria-valuetext','No motions');
+      by('rail').style.setProperty('--done','0%');by('elapsed').textContent='00:00';
+      for(const k of ['px','py','pz'])by(k).textContent='–';
+      by('linecode').replaceChildren();by('lineinfo').textContent='';by('motion-data').textContent='';by('view-state').textContent='No motions';
+      return;
+    }
+    time=clamp(value,0,job.duration);const ratio=job.duration?time/job.duration:0,i=inSegment(time),a=startSec(i),b=job.endTime[i],p=point(i,b>a?clamp((time-a)/(b-a),0,1):1);
+    by('progress').value=String(Math.round(ratio*1000000));by('rail').style.setProperty('--done',(100*ratio)+'%');by('progress').setAttribute('aria-valuetext',clock(time)+' of '+clock(job.duration));by('elapsed').textContent=clock(time);
+    for(let k=0;k<3;k++)by(['px','py','pz'][k]).textContent=fmt(p[k]);
+    const t=job.tool[i],mode=['Rapid','Feed','Dwell'][job.kind[i]]||'Move';
+    by('view-state').textContent=(t?'T'+t:'Tool ?')+' · '+mode;by('tool-dot').style.background=job.kind[i]===0?'#b5c3d2':color(t);
+    by('motion-data').textContent=(t?'T'+t:'Unknown tool')+'  ·  '+mode+(job.kind[i]===1?'  '+job.feed[i].toFixed(0)+' mm/min':'')+'  ·  '+(job.spindle[i]?'Spindle on':'Spindle off');
+    by('lineinfo').textContent='Line '+job.line[i].toLocaleString()+' / '+job.lineCount.toLocaleString();
+    drawSource(job.line[i]);
+    const active=nearestStage(seq,time);if(stageId!==active){if(stageId>=0&&stageNodes[stageId])stageNodes[stageId].classList.remove('active');stageNodes[active]?.classList.add('active');stageId=active;}
+    const n=nearestStage(job.stages,time);by('stage-select').value=String(n);
+    const h=job.holes.length?nearestStage(job.holes,time):-1;
+    by('hole-select').value=(h>=0&&job.holes[h].time<=time&&n===nearestStage(job.stages,job.holes[h].time))?String(h):'';
+    updateViewTime();
+  }
+  function pause(){playing=false;lastTick=0;by('play-text').textContent='Play';by('play-icon').textContent='▶';by('play').setAttribute('aria-label','Play simulation');}
+  function tick(ts){if(!playing)return;const dt=lastTick?Math.min(.25,(ts-lastTick)/1000):0;lastTick=ts;seek(time+dt*Number(by('speed').value));if(time>=job.duration)pause();else requestAnimationFrame(tick);}
+  function play(){if(!job?.count||loadState)return;if(playing)return pause();if(time>=job.duration)seek(0);playing=true;by('play-text').textContent='Pause';by('play-icon').textContent='Ⅱ';by('play').setAttribute('aria-label','Pause simulation');requestAnimationFrame(tick);}
+  function jump(t){pause();if(Number.isFinite(t))seek(t);}
+  function step(forward){if(!job?.count)return;pause();const i=inSegment(time);if(forward)seek(job.endTime[i]);else{const s=startSec(i);seek(time-s>1e-7?s:startSec(Math.max(0,i-1)));}}
+  function makeFields(){
+    const sizes=['Length X','Width Y','Height Z'],positions=['Min X','Min Y','Min Z'];
+    stockKeys.forEach((k,i)=>{const label=el('label','',(i<3?sizes[i]:positions[i-3])+' (mm)');const inp=el('input');inp.type='number';inp.id='stock-'+k;inp.step='any';if(i<3)inp.min='.001';label.append(inp);by(i<3?'stock-size':'stock-pos').append(label);});
+    for(const [key,value] of Object.entries(flags)){const label=el('label');const inp=el('input');inp.type='checkbox';inp.checked=value;inp.id='flag-'+key;inp.addEventListener('change',()=>{flags[key]=inp.checked;path.setOptions(flags);});label.append(inp,document.createTextNode(flagNames[key]));by('flags').append(label);}
+  }
+  // Metadata is optional and always uses millimetres, regardless of motion units.
+  function toolsFor(text){
+    const result = {};
+    for(const n of toolData(job)) result[n] = {d:0,shape:'flat'};
+    const headers = text.slice(0,16384).matchAll(/(?:\(|^\s*;)\s*TOOL\s+T(\d+)\s+D(\d*\.?\d+)\s+(FLAT|BALL|DRILL)\s*(?=\)|$)/gim);
+    for(const [,number,diameter,shape] of headers){
+      const n=Number(number), d=Number(diameter);
+      if(Object.hasOwn(result,n) && Number.isFinite(d) && d>0) result[n]={d,shape:shape.toLowerCase()};
+    }
+    return result;
+  }
+  function stockFor(s){
+    const head=s.slice(0,16384);
+    const range=head.match(/\bSTOCK\s+X(-?\d+(?:\.\d+)?)\.\.(-?\d+(?:\.\d+)?)\s+Y(-?\d+(?:\.\d+)?)\.\.(-?\d+(?:\.\d+)?)\s+Z(-?\d+(?:\.\d+)?)\.\.(-?\d+(?:\.\d+)?)/i);
+    if(range){const [x,x1,y,y1,z,z1]=range.slice(1).map(Number);if(x1>x&&y1>y&&z1>z)return {v:{x,y,z,l:x1-x,w:y1-y,h:z1-z},hint:'Work coordinates · stock limits from the NC header.'};}
+    const mn=job.bounds.min,mx=job.bounds.max,top=0;
+    const x=Math.floor(mn[0]),y=Math.floor(mn[1]),z=Math.min(-1,Math.floor(mn[2]));
+    return {v:{x,y,z,l:Math.max(1,Math.ceil(mx[0])-x),w:Math.max(1,Math.ceil(mx[1])-y),h:top-z},hint:'Assumed from path bounds with the stock top at Z0. Enter measured stock limits and cutter diameters before interpreting contact or cut depth.'};
+  }
+  function setToolFields(){
+    const f=by('tool-fields');f.replaceChildren();
+    for(const [ns,info] of Object.entries(cutTools)){
+      const n=Number(ns),r=el('div','tool-field'),t=el('span','fl');t.append(colors(n),el('b','',n?'T'+n:'T?'));const sel=el('select');sel.id='shape-'+ns;sel.setAttribute('aria-label','T'+n+' cutter shape');
+      for(const v of ['flat','ball','drill'])sel.append(option({flat:'Flat end',ball:'Ball nose',drill:'Twist drill'}[v],v));sel.value=info.shape;
+      const num=el('input');num.type='number';num.step='any';num.min='0';num.value=String(info.d);num.id='dia-'+ns;num.setAttribute('aria-label','T'+n+' diameter in millimetres');
+      r.append(t,sel,num);f.append(r);
+    }
+  }
+  function controls(){const conf=stockFor(source);stock=conf.v;cutTools=toolsFor(source);
+    for(const k of stockKeys)by('stock-'+k).value=String(stock[k]);by('stock-hint').textContent=conf.hint;
+    setToolFields();
+    by('setup-msg').textContent='Enter the cutting diameter for each tool. A diameter of zero omits its cut from the stock simulation. Drills use a 118° included angle.';
+    by('configure-tools').hidden=Object.values(cutTools).every(tool=>tool.d>0);
+    by('parser-notes').textContent=job.notes.join(' ');
+    path.setStock(stock);path.setTools(cutTools);path.setOptions(flags);
+    if(hasSolid)solid.setStock(stock);
+    cut.setStock(stock);cut.setTools(cutTools);updateMarkers();
+  }
+  function applyConfig(){
+    if(!job)return;
+    const next={};for(const k of stockKeys){const input=by('stock-'+k),v=input.valueAsNumber;if(!Number.isFinite(v)||(stockKeys.indexOf(k)<3&&!(v>0))){by('setup-msg').textContent='Enter a finite coordinate and a positive number for each stock dimension.';input.focus();return;}next[k]=v;}
+    const nt={};for(const key of Object.keys(cutTools)){const inp=by('dia-'+key),d=inp.valueAsNumber;if(!Number.isFinite(d)||d<0){by('setup-msg').textContent='Enter a diameter in millimetres or 0 for an unknown cutter.';inp.focus();return;}nt[key]={d,shape:by('shape-'+key).value};}
+    stock=next;cutTools=nt;path.setStock(stock);path.setTools(nt);
+    if(hasSolid)solid.setStock(stock);
+    cut.setStock(stock);cut.setTools(nt);updateMarkers();
+    by('configure-tools').hidden=Object.values(nt).every(tool=>tool.d>0);
+    by('setup-msg').textContent='Applied to this preview.';
+    if(entry && Object.values(nt).some(tool=>tool.d>0)) setView('solid');
+    seek(time);
+  }
+  function firstTouch(i){
+    const k=6*i, a=job.xyz, radius=cutTools[job.tool[i]]?.d/2||0;
+    if(!(radius>0))return null;
+    const xmin=stock.x,xmax=xmin+stock.l,ymin=stock.y,ymax=ymin+stock.w,zmax=stock.z+stock.h;
+    let t0=0,t1=1;
+    // Clip cheaply against the cutter-expanded bounds, then refine the circular footprint.
+    for(const [n,min,max] of [[0,xmin-radius,xmax+radius],[1,ymin-radius,ymax+radius],[2,-Infinity,zmax]]){
+      const v=a[k+n],dv=a[k+n+3]-v;if(Math.abs(dv)<1e-14){if(v<min||v>max)return null;}else{let ta=(min-v)/dv,tb=(max-v)/dv;if(ta>tb)[ta,tb]=[tb,ta];t0=Math.max(t0,ta);t1=Math.min(t1,tb);if(t1<t0-1e-10)return null;}
+    }
+    const shape=cutTools[job.tool[i]].shape;
+    const clearance=t=>{const p=point(i,t),x=p[0],y=p[1],dz=Math.max(0,zmax-p[2]);let rho=radius;if(shape==='drill')rho=Math.min(radius,dz*Math.tan(59*Math.PI/180));if(shape==='ball'&&dz<radius)rho=Math.sqrt(Math.max(0,dz*(2*radius-dz)));return Math.hypot(Math.max(xmin-x,0,x-xmax),Math.max(ymin-y,0,y-ymax))-rho;};
+    if(clearance(t0)<=1e-7)return t0;
+    let lo=t0,hi=t1;for(let j=0;j<24;j++){const m=(hi-lo)/3,l=lo+m,r=hi-m;if(clearance(l)<clearance(r))hi=r;else lo=l;}
+    let tm=(lo+hi)*.5;if(clearance(t1)<clearance(tm))tm=t1;if(clearance(tm)>1e-6)return null;
+    lo=t0;hi=tm;for(let j=0;j<24;j++){const mid=(lo+hi)/2;if(clearance(mid)>1e-7)lo=mid;else hi=mid;}return hi;
+  }
+  function updateMarkers(){
+    contact=null;entry=null;
+    for(let i=0;i<job.count;i++){if(job.kind[i]!==1||!job.spindle[i])continue;
+      if(!entry)entry={p:point(i,1),t:job.endTime[i]};
+      const f=firstTouch(i);if(f!==null){contact={p:point(i,f),t:startSec(i)+(job.endTime[i]-startSec(i))*f};break;}
+    }
+    path.setMarkers({entry:entry?.p,contact:contact?.p});
+    by('to-entry').disabled=!entry;by('to-contact').disabled=!contact;
+    by('to-entry').title=entry?'First spindle-on feed endpoint: '+entry.p.map(fmt).join(', ')+' mm':'No spindle-on feed in the preview';
+    by('to-contact').title=contact?'Estimated first stock contact, tool tip: '+contact.p.map(fmt).join(', ')+' mm':'No modeled contact. Confirm tool diameters and stock limits in Setup.';
+  }
+  function buildStages(){
+    seq=[];stageNodes=[];stageId=-1;
+    for(const stage of job.stages){
+      const previous=seq.at(-1);
+      if(!previous || previous.name!==stage.name || previous.tool!==stage.tool) seq.push(stage);
+    }
+    const op=by('operations');op.replaceChildren();
+    for(const s of seq){const btn=el('button','op');btn.append(colors(s.tool),el('span','',s.name),el('small','',s.tool?'T'+s.tool:'—'));btn.title=s.name+' · '+clock(s.time);btn.onclick=()=>jump(s.time);op.append(btn);stageNodes.push(btn);}
+    by('op-count').textContent=seq.length+' total';
+    const stage=by('stage-select'); stage.replaceChildren(...job.stages.map((s,i)=>option(s.name,i)));
+    const hs=by('hole-select');hs.replaceChildren(option('Select a hole…',''));for(let i=0;i<job.holes.length;i++){const h=job.holes[i];hs.append(option(h.name+'   X '+Number(h.x).toFixed(2)+'   Y '+Number(h.y).toFixed(2),i));}by('hole-block').hidden=!job.holes.length;
+    const rail=by('rail');rail.replaceChildren();for(const s of seq.slice(1)){const tick=el('i');tick.style.left=(100*s.time/job.duration)+'%';rail.append(tick);}
+    const key=by('tool-key');key.replaceChildren();for(const n of toolData(job)){const item=el('span','keyitem');item.append(colors(n),document.createTextNode(n?'T'+n:'T?'));key.append(item);}
+    const rapid=el('span','keyitem');const dot=el('i','dot');dot.style.background='#a7bacd';rapid.append(dot,document.createTextNode('Rapid'));key.append(rapid);
+  }
+  function openJob(text,name,parsed,isDemo){
+    job=parsed;source=text;starts=indexLines(text);
+    by('filename').textContent=isDemo?'Arc pocket plate · demo.nc':name;by('filename').title=name;document.title=name+' · Pathscope';by('duration').textContent=clock(job.duration);
+    const warnings=by('warnings');warnings.hidden=!job.warnings.length;warnings.open=!!job.warnings.length;
+    by('warning-title').textContent='Preview notices ('+job.warnings.length+')';by('warning-items').replaceChildren(...job.warnings.map(w=>el('li','',w)));
+    by('job-note').textContent='Estimated time includes programmed feed, dwell and modeled rapids at 1,800 mm/min.';
+    lastLine=0;time=0;cut.setActive(false);
+    if(hasSolid){solid.setActive(false);solid.setJob(job);}
+    path.setJob(job);cut.setJob(job);controls();path.setView('iso');
+    const canCut=Boolean(entry)&&Object.values(cutTools).some(tool=>tool.d>0);
+    setView(canCut?'solid':'path');
+    buildStages();setTab(false);seek(isDemo?job.duration:0);
+    path.fit('path');if(hasSolid)solid.fit('path');
+    busy('');
+    if(!job.count)notice('No moves to display',job.warnings[0]||'The file contained no supported moves with a known starting position.');
+  }
+  const parserSource=document.querySelector('#demo + script').textContent;
+  const workerSource=parserSource+'\nself.onmessage=e=>{try{const j=parseNC(e.data);const b=[...new Set(Object.values(j).filter(v=>ArrayBuffer.isView(v)).map(v=>v.buffer))];self.postMessage({j},b);}catch(err){self.postMessage({error:String(err.message||err)});}}';
+  let cancelParse=null;
+  async function parseJob(text,id){
+    if(typeof Worker==='undefined') return parseNC(text);
+    const url=URL.createObjectURL(new Blob([workerSource],{type:'text/javascript'}));
+    let active;
+    try{
+      try { active=new Worker(url); } catch { return parseNC(text); }
+      return await new Promise((resolve,reject)=>{
+        cancelParse=()=>reject(new Error('A newer file was selected.'));
+        active.onmessage=({data})=>data.error?reject(new Error(data.error)):resolve(data.j);
+        active.onerror=event=>reject(new Error(event.message || 'Parser worker failed.'));
+        active.postMessage(text);
+      });
+    }finally{
+      active?.terminate();
+      URL.revokeObjectURL(url);
+      if(id===ticket)cancelParse=null;
+    }
+  }
+  async function load(loader,name,isDemo=false){
+    const id=++ticket;
+    if(cancelParse){cancelParse();cancelParse=null;}
+    pause();loadState=true;busy('Reading '+name+'…');
+    try{
+      const raw=await loader();
+      if(id!==ticket)return;
+      const text=raw.includes('\r')?raw.replace(/\r\n?/g,'\n'):raw;
+      busy('Building toolpaths…');
+      const parsed=await parseJob(text,id);
+      if(id===ticket)openJob(text,name,parsed,isDemo);
+    }
+    catch(error){if(id===ticket){busy('');notice('Could not preview the file',String(error.message||error));}}
+    finally{if(id===ticket)loadState=false;}
+  }
+  function sample(){
+    load(()=>{
+      const bytes=Uint8Array.from(atob(by('demo').textContent.trim()),c=>c.charCodeAt(0));
+      return new TextDecoder().decode(bytes);
+    },'demo.nc',true);
+  }
+  function loadFile(f){if(f)load(()=>f.text(),f.name);}
+  makeFields(); on('close-msg','click',()=>by('msg').close());on('open-btn','click',()=>by('file').click());on('file','change',e=>{loadFile(e.target.files[0]);e.target.value='';});on('demo-btn','click',sample);on('job-tab','click',()=>setTab(false));on('setup-tab','click',()=>setTab(true));on('configure-tools','click',()=>setTab(true));
+  on('play','click',play);on('prev-step','click',()=>step(false));on('next-step','click',()=>step(true));on('progress','input',()=>{if(job)jump(job.duration*Number(by('progress').value)/1000000);});on('apply','click',applyConfig);
+  function jumpInView(target,seconds){jump(seconds);if(view!==target)setView(target);}
+  on('to-contact','click',()=>{if(contact)jumpInView('path',contact.t);});
+  on('to-entry','click',()=>{if(entry)jumpInView('path',entry.t);});
+  on('to-finished','click',()=>{if(job?.count)jumpInView('solid',job.duration);});
+  on('to-stage-end','click',()=>{
+    if(!job?.count)return;
+    const next=job.stages[Number(by('stage-select').value)+1];
+    const t=next?Math.max(0,next.time-0.000001):job.duration;
+    jumpInView('solid',t);
+  });
+  on('stage-select','change',()=>jump(job.stages[Number(by('stage-select').value)].time));on('hole-select','change',()=>{const v=by('hole-select').value;if(v!=='')jump(job.holes[Number(v)].time);});
+  for(const btn of document.querySelectorAll('[data-view]'))btn.onclick=()=>setView(btn.dataset.view);
+  on('path-angle','change',()=>path.setView(by('path-angle').value));
+  on('fit','change',()=>{const f=by('fit').value;if(f)activeRenderer().fit(f);by('fit').value='';});on('zoom-in','click',()=>activeRenderer().zoom(1.25));on('zoom-out','click',()=>activeRenderer().zoom(.8));
+  document.addEventListener('visibilitychange',()=>{if(document.hidden)pause();});
+  document.addEventListener('keydown',e=>{if(e.target.closest('input,select,textarea,button,dialog')||e.ctrlKey||e.metaKey||e.altKey)return;if(e.code==='Space'){e.preventDefault();play();}if(e.key==='ArrowRight'){e.preventDefault();step(true);}if(e.key==='ArrowLeft'){e.preventDefault();step(false);}});
+  window.addEventListener('dragenter',e=>{if(!e.dataTransfer.types.includes('Files'))return;e.preventDefault();dragCount++;by('viewport').classList.add('dragover');});
+  window.addEventListener('dragover',e=>{if(e.dataTransfer.types.includes('Files')){e.preventDefault();e.dataTransfer.dropEffect='copy';}});
+  window.addEventListener('dragleave',()=>{dragCount=Math.max(0,dragCount-1);if(!dragCount)by('viewport').classList.remove('dragover');});
+  window.addEventListener('drop',e=>{e.preventDefault();dragCount=0;by('viewport').classList.remove('dragover');loadFile(e.dataTransfer.files[0]);});
+  sample();
+})();
+</script></body></html>

@@ -1,0 +1,74 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert');
+// Run against the built, self-contained HTML file; no browser packages are needed.
+let loaded=[];const pathClicks=[],cutClicks=[],solidClicks=[],elements=new Map();
+class Node {
+ constructor(tag='div',id='',text=''){this.tag=tag;this._id=id;this.textContent=text;this.hidden=false;this.options=[];this.children=[];this.value='';this.events={};this.style={setProperty:(k,v)=>this.style[k]=v};this.attrs={};this.dataset={};
+ this.classList={set:new Set,add:k=>this.classList.set.add(k),remove:k=>this.classList.set.delete(k),toggle:(k,v)=>v?this.classList.set.add(k):this.classList.set.delete(k)};if(id)elements.set(id,this);}
+ set id(v){this._id=v;elements.set(v,this)} get id(){return this._id}
+ append(...c){this.children.push(...c);this.firstElementChild=this.children[0];}
+ replaceChildren(...c){this.children=c;this.firstElementChild=this.children[0];}
+ setAttribute(k,v){this.attrs[k]=v} addEventListener(k,fn){this.events[k]=fn} click(){this.events.click?.({target:this});this.onclick?.({target:this});}
+ focus(){} showModal(){this.open=true} close(){this.open=false} get valueAsNumber(){return parseFloat(this.value)} closest(){return false}
+}
+const html=fs.readFileSync(process.argv[2]||'index.html','utf8');
+const scripts=[...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/g)].map(match=>match[1]);
+const [demo,parser]=scripts;
+const tbody=html.slice(0,html.indexOf('<script type="application/octet-stream"'));
+for(const m of tbody.matchAll(/<([a-z][a-z0-9]*)\b[^>]*\bid="([^"]+)"/g))new Node(m[1],m[2]);
+const dm=new Node('script','demo',demo),pScript=new Node('script','',parser);elements.get('busy').append(new Node);
+function by(id){assert(elements.has(id),id);return elements.get(id)}
+const views=['solid','path','depth'].map(v=>{const b=new Node('button');b.dataset.view=v;return b;});
+const doc={getElementById:by,querySelectorAll:()=>views,querySelector:()=>pScript,createElement:t=>new Node(t),createTextNode:s=>new Node('text','',s),addEventListener:()=>{}};
+let materialCallbacks;
+function stubAPI(list){return class {constructor(element,callbacks){if(list===cutClicks)materialCallbacks=callbacks;return new Proxy({}, {get:(o,name)=>name==='available'?!process.argv.includes('--no-solid'):(...args)=>{list.push([name,...args]);if(name==='setJob'&&list===pathClicks)loaded.push(args[0]);}});}}}
+const fixture={document:doc,window:null,URL,Blob,Response,Worker:undefined,TextDecoder,setTimeout,clearTimeout,console,atob,structuredClone,performance,requestAnimationFrame:f=>setTimeout(()=>f(performance.now()),8),Option:class extends Node{constructor(name,value){super('option','',name);this.value=value}},NCRenderer:stubAPI(pathClicks),NCCutMap:stubAPI(cutClicks),addEventListener:()=>{}};
+fixture.NCSolidRenderer=stubAPI(solidClicks);
+fixture.window=fixture;const cx=vm.createContext(fixture); vm.runInContext(parser,cx);
+const app=html.slice(html.lastIndexOf('<script>')+8,html.lastIndexOf('</script>'));
+vm.runInContext(app,cx);
+const ev=(id,t)=>by(id).events[t]?.({target:by(id)});
+const wait=async pred=>{for(let i=0;i<150;i++){await new Promise(r=>setTimeout(r,35));if(pred())return}throw Error('timeout '+by('msgtext').textContent);};
+(async()=>{
+ await wait(()=>by('filename').textContent.includes('demo.nc'));
+ assert(by('busy').hidden);
+ assert.deepEqual(loaded[0].tools,[1,2,3]);
+ assert.equal(by('operations').children.length,4);
+ assert.equal(by('hole-select').children.length,5);
+ assert.equal(by('stock-l').value,'72');
+ assert.equal(by('dia-1').value,'6');
+ assert.equal(by('shape-3').value,'drill');
+ assert(by('configure-tools').hidden);
+ assert.equal(by('progress').value,'1000000');
+ const solidAvailable=!process.argv.includes('--no-solid');
+ assert.equal(by(solidAvailable?'solid-surface':'depth-surface').hidden,false);
+ by('progress').value='420000';
+ ev('progress','input');
+ const position=(solidAvailable?solidClicks:cutClicks).filter(v=>v[0]==='setTime').at(-1)[1];
+ assert(Math.abs(position-.42*loaded[0].duration)<.0001);
+ by('stage-select').value='1';ev('stage-select','change');by('to-stage-end').click();
+ assert(Number(by('progress').value)>0 && Number(by('progress').value)<1e6);
+ by('to-finished').click();
+ assert.equal(by('progress').value,'1000000');
+ const send=async(name,source)=>{
+   by('file').files=[{name,text:async()=>source}];
+   ev('file','change');await wait(()=>by('filename').textContent===name);
+ };
+ const code='G21 G90\rM3 S9000\rG0 X0 Y0 Z2\rG1 Z-1 F50\rG1 X8\rM30\r';
+ await send('example.ngc',code);
+ assert.equal(by('progress').value,'0');
+ assert.equal(by('configure-tools').hidden,false);
+ assert.equal(by('path-surface').hidden,false);
+ by('configure-tools').click();assert.equal(by('setup-panel').hidden,false);
+ by('dia-0').value='2';by('apply').click();
+ assert.equal(by('configure-tools').hidden,true);
+ assert.equal(by(solidAvailable?'solid-surface':'depth-surface').hidden,false);
+ assert.equal(by('to-contact').disabled,false);
+ const named='(STOCK X-2..20 Y-3..10 Z-4..0 mm)\n(TOOL T7 D1.25 BALL)\nT7 M6\n'+code;
+ await send('custom.toolpath',named);
+ assert.equal(by('stock-x').value,'-2');assert.equal(by('stock-w').value,'13');
+ assert.equal(by('shape-7').value,'ball');assert.equal(by('dia-7').value,'1.25');
+ assert.equal(by('configure-tools').hidden,true);
+ await send('unsupported.nc','G65 P1234\nM30');
+ assert(by('msg').open);assert(!by('warnings').hidden);assert.equal(by('progress').value,'0');
+ console.log('Viewer smoke tests passed for sample, timeline, fallback, unsupported file and user-defined cutters.');
+})().catch(e=>{console.error(e);process.exitCode=1;});

@@ -58,8 +58,15 @@ const wait=async pred=>{for(let i=0;i<150;i++){await new Promise(r=>setTimeout(r
  assert.equal(by('progress').value,'0');
  assert.equal(by('configure-tools').hidden,false);
  assert.equal(by('path-surface').hidden,false);
+ assert.equal(by('dia-0').value,'0');
+ for(const control of [views[0],views[2],by('to-finished')]){
+   by('job-tab').click();assert(by('setup-panel').hidden);
+   control.click();assert.equal(by('setup-panel').hidden,false,'A material view needs a cutter diameter');
+ }
+ by('progress').value='0';ev('progress','input');
  by('configure-tools').click();assert.equal(by('setup-panel').hidden,false);
  by('dia-0').value='2';by('apply').click();
+ assert.equal(by('progress').value,'1000000','First diameter at the start must reveal the machined result');
  assert.equal(by('configure-tools').hidden,true);
  assert.equal(by(solidAvailable?'solid-surface':'depth-surface').hidden,false);
  assert.equal(by('to-contact').disabled,false);
@@ -68,6 +75,34 @@ const wait=async pred=>{for(let i=0;i<150;i++){await new Promise(r=>setTimeout(r
  assert.equal(by('stock-x').value,'-2');assert.equal(by('stock-w').value,'13');
  assert.equal(by('shape-7').value,'ball');assert.equal(by('dia-7').value,'1.25');
  assert.equal(by('configure-tools').hidden,true);
+ assert.equal(by('progress').value,'1000000','Recognized cutting files should show the finished shape on open');
+ by('play').click();assert.equal(by('progress').value,'0','Playback should restart from the beginning');
+ by('play').click();
+
+ // CAM declarations can precede the units block, or appear many lines later at tool changes.
+ const padding='(Contour pass)\n'.repeat(1300);
+ const profile=[
+   '(T3 D=0.25 CR=0. - flat end mill)','N10G20G90','T3 M6','M3 S9000',
+   'G0 X0 Y0 Z0.1','G1 Z-0.02 F10','X1',padding,
+   '; T9 D2.4 mm x 10 ball nose','T9 M6','G1 Y1',
+   'G21','(T6 D=1.8 twist drill)','T6 M6','G1 X3','M30'
+ ].join('\n');
+ await send('CAM-summary.nc',profile);
+ for(const [t,diameter,shape] of [[3,'6.35','flat'],[9,'2.4','ball'],[6,'1.8','drill']]){
+   assert.equal(by('dia-'+t).value,diameter);
+   assert.equal(by('shape-'+t).value,shape);
+ }
+ assert(by('configure-tools').hidden);
+ assert.equal(by('progress').value,'1000000');
+ const ambiguous=[
+   '(T3 D=2.0 flat end mill)','(T3 D=3.0 flat end mill)',
+   '(T8 D=2.0 tapered ball nose)','G21 G90','T3 M6','M3 S9000',
+   'G0 X0 Y0 Z2','G1 Z-1 F50','T8 M6','G1 X5','M30'
+ ].join('\n');
+ await send('ambiguous-tools.nc',ambiguous);
+ assert.equal(by('dia-3').value,'0','Conflicting diameters require manual setup');
+ assert.equal(by('dia-8').value,'0','Unsupported geometry requires manual setup');
+ assert.equal(by('configure-tools').hidden,false);
  await send('unsupported.nc','G65 P1234\nM30');
  assert(by('msg').open);assert(!by('warnings').hidden);assert.equal(by('progress').value,'0');
  console.log('Viewer smoke tests passed for sample, timeline, fallback, unsupported file and user-defined cutters.');

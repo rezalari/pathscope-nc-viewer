@@ -1601,7 +1601,20 @@ if (typeof module !== "undefined" && module.exports) module.exports = {buildSoli
     if(view==='path')path.setTime(time);
     else cut.setTime(time);
   }
+  function hasSizedTool() { return Object.values(cutTools).some(tool=>tool.d>0); }
+  function configureMissingTools() {
+    const missing=Object.keys(cutTools).filter(key=>cutTools[key].d===0);
+    setTab(true);
+    if(!missing.length)return;
+    const names=missing.map(key=>key==='0'?'the unnumbered tool':'T'+key).join(', ');
+    by('setup-msg').textContent='Enter the cutter shape and diameter in mm for '+names+', then choose Apply stock & tools to see the material removed.';
+    by('dia-'+missing[0]).focus();
+  }
   function setView(name) {
+    if(name!=='path' && entry && !hasSizedTool()){
+      configureMissingTools();
+      return;
+    }
     view=name==='solid'&&!hasSolid?'depth':name;
     by('solid-surface').hidden=view!=='solid';
     by('depth-surface').hidden=view!=='depth';
@@ -1660,14 +1673,52 @@ if (typeof module !== "undefined" && module.exports) module.exports = {buildSoli
     stockKeys.forEach((k,i)=>{const label=el('label','',(i<3?sizes[i]:positions[i-3])+' (mm)');const inp=el('input');inp.type='number';inp.id='stock-'+k;inp.step='any';if(i<3)inp.min='.001';label.append(inp);by(i<3?'stock-size':'stock-pos').append(label);});
     for(const [key,value] of Object.entries(flags)){const label=el('label');const inp=el('input');inp.type='checkbox';inp.checked=value;inp.id='flag-'+key;inp.addEventListener('change',()=>{flags[key]=inp.checked;path.setOptions(flags);});label.append(inp,document.createTextNode(flagNames[key]));by('flags').append(label);}
   }
-  // Metadata is optional and always uses millimetres, regardless of motion units.
   function toolsFor(text){
     const result = {};
     for(const n of toolData(job)) result[n] = {d:0,shape:'flat'};
-    const headers = text.slice(0,16384).matchAll(/(?:\(|^\s*;)\s*TOOL\s+T(\d+)\s+D(\d*\.?\d+)\s+(FLAT|BALL|DRILL)\s*(?=\)|$)/gim);
-    for(const [,number,diameter,shape] of headers){
-      const n=Number(number), d=Number(diameter);
-      if(Object.hasOwn(result,n) && Number.isFinite(d) && d>0) result[n]={d,shape:shape.toLowerCase()};
+
+    // Tool summaries can also appear next to a tool change far into a program.
+    // Read comments and unit changes together so text inside comments is never
+    // interpreted as a G20/G21 command. A leading CAM summary uses the first units.
+    const tokens = /\(([^()\r\n]*)\)|;([^\r\n]*)|G0?(20|21)(?![\d.])/gi;
+    const header = /^\s*(?:(TOOL)\s+)?T\s*(\d+)\s*(?:[-:,]\s*)?(?:D(?:IA(?:METER)?)?\s*[=:]?\s*|[Ø⌀]\s*)((?:\d+(?:\.\d*)?|\.\d+))(?:\s*(mm\b|in(?:ch(?:es)?)?\b|"))?(?=$|[\s,:-]|[x×]\s*\d)(.*)$/i;
+    const declarations = [];
+    let motionUnits, firstUnits;
+    for(const token of text.matchAll(tokens)){
+      if(token[3]){
+        motionUnits = token[3]==='20' ? 25.4 : 1;
+        firstUnits ??= motionUnits;
+        continue;
+      }
+      const declaration = header.exec(token[1] ?? token[2]);
+      if(!declaration) continue;
+      const [,keyword,number,diameter,unit,description] = declaration;
+      const n = Number(number);
+      if(!Object.hasOwn(result,n)) continue;
+
+      // The solid engine models flat, spherical and conical ends. Names such as
+      // "tapered ball" or "bull nose" need an explicit choice in Setup.
+      if(/\b(?:taper(?:ed)?|bull[ -]?nose|chamfer|engraver|countersink|counterbore|spot[ -]?drill|cent(?:er|re)[ -]?drill|lollipop|dovetail)\b/i.test(description)) continue;
+      const ball = /\bball(?:nose)?\b/i.test(description);
+      const drill = /\bdrill\b/i.test(description);
+      const flat = /\b(?:flat|square)\b/i.test(description);
+      if(Number(ball)+Number(drill)+Number(flat)!==1) continue;
+      if(flat && Number(description.match(/\bCR\s*=\s*(\d*\.?\d+)/i)?.[1])>0) continue;
+
+      // The documented "(TOOL Tn Dn SHAPE)" form uses mm regardless of G20/G21.
+      const usesMetadataUnits = keyword && /^\s*(?:flat|ball|drill)\s*$/i.test(description);
+      const scale = unit ? (/^mm$/i.test(unit) ? 1 : 25.4) : (usesMetadataUnits ? 1 : motionUnits);
+      declarations.push({n,diameter:Number(diameter),scale,shape:ball?'ball':drill?'drill':'flat'});
+    }
+    const ambiguous = new Set();
+    for(const {n,diameter,scale,shape} of declarations){
+      const d = diameter * (scale ?? firstUnits ?? 1);
+      if(!Number.isFinite(d) || d<=0 || ambiguous.has(n)) continue;
+      const prior=result[n];
+      if(prior.d && (Math.abs(d-prior.d)>1e-5 || prior.shape!==shape)){
+        ambiguous.add(n);
+        result[n]={d:0,shape:'flat'};
+      }else result[n]={d,shape};
     }
     return result;
   }
@@ -1702,13 +1753,20 @@ if (typeof module !== "undefined" && module.exports) module.exports = {buildSoli
     if(!job)return;
     const next={};for(const k of stockKeys){const input=by('stock-'+k),v=input.valueAsNumber;if(!Number.isFinite(v)||(stockKeys.indexOf(k)<3&&!(v>0))){by('setup-msg').textContent='Enter a finite coordinate and a positive number for each stock dimension.';input.focus();return;}next[k]=v;}
     const nt={};for(const key of Object.keys(cutTools)){const inp=by('dia-'+key),d=inp.valueAsNumber;if(!Number.isFinite(d)||d<0){by('setup-msg').textContent='Enter a diameter in millimetres or 0 for an unknown cutter.';inp.focus();return;}nt[key]={d,shape:by('shape-'+key).value};}
+    const previouslySized=hasSizedTool();
     stock=next;cutTools=nt;path.setStock(stock);path.setTools(nt);
     if(hasSolid)solid.setStock(stock);
     cut.setStock(stock);cut.setTools(nt);updateMarkers();
     by('configure-tools').hidden=Object.values(nt).every(tool=>tool.d>0);
     by('setup-msg').textContent='Applied to this preview.';
-    if(entry && Object.values(nt).some(tool=>tool.d>0)) setView('solid');
-    seek(time);
+    if(entry && hasSizedTool()){
+      setView('solid');
+      seek(!previouslySized && time===0 ? job.duration : time);
+    }else{
+      setView('path');
+      seek(time);
+      if(entry)configureMissingTools();
+    }
   }
   function firstTouch(i){
     const k=6*i, a=job.xyz, radius=cutTools[job.tool[i]]?.d/2||0;
@@ -1761,9 +1819,9 @@ if (typeof module !== "undefined" && module.exports) module.exports = {buildSoli
     lastLine=0;time=0;cut.setActive(false);
     if(hasSolid){solid.setActive(false);solid.setJob(job);}
     path.setJob(job);cut.setJob(job);controls();path.setView('iso');
-    const canCut=Boolean(entry)&&Object.values(cutTools).some(tool=>tool.d>0);
+    const canCut=Boolean(entry)&&hasSizedTool();
     setView(canCut?'solid':'path');
-    buildStages();setTab(false);seek(isDemo?job.duration:0);
+    buildStages();setTab(false);seek(canCut?job.duration:0);
     path.fit('path');if(hasSolid)solid.fit('path');
     busy('');
     if(!job.count)notice('No moves to display',job.warnings[0]||'The file contained no supported moves with a known starting position.');
@@ -1811,7 +1869,7 @@ if (typeof module !== "undefined" && module.exports) module.exports = {buildSoli
     },'demo.nc',true);
   }
   function loadFile(f){if(f)load(()=>f.text(),f.name);}
-  makeFields(); on('close-msg','click',()=>by('msg').close());on('open-btn','click',()=>by('file').click());on('file','change',e=>{loadFile(e.target.files[0]);e.target.value='';});on('demo-btn','click',sample);on('job-tab','click',()=>setTab(false));on('setup-tab','click',()=>setTab(true));on('configure-tools','click',()=>setTab(true));
+  makeFields(); on('close-msg','click',()=>by('msg').close());on('open-btn','click',()=>by('file').click());on('file','change',e=>{loadFile(e.target.files[0]);e.target.value='';});on('demo-btn','click',sample);on('job-tab','click',()=>setTab(false));on('setup-tab','click',()=>setTab(true));on('configure-tools','click',configureMissingTools);
   on('play','click',play);on('prev-step','click',()=>step(false));on('next-step','click',()=>step(true));on('progress','input',()=>{if(job)jump(job.duration*Number(by('progress').value)/1000000);});on('apply','click',applyConfig);
   function jumpInView(target,seconds){jump(seconds);if(view!==target)setView(target);}
   on('to-contact','click',()=>{if(contact)jumpInView('path',contact.t);});

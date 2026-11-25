@@ -6,8 +6,8 @@ Drop an NC or G-code file into your browser to inspect its toolpaths and see the
 
 ## Using the viewer
 
-1. Choose **Open NC file** or drop a file onto the viewer. The included arc-pocket plate opens at the finished shape. Press **Play** to see how it was cut.
-2. For your own file, open **Setup**, then confirm the stock dimensions, stock lower corner, and each tool's shape and diameter. Click **Apply stock & tools**. Enter dimensions in millimeters.
+1. Choose **Open NC file** or drop a file onto the viewer. When the viewer finds a cutter size and a spindle-on feed, it opens at the finished shape. Drag the timeline back or press **Play** to watch material come off.
+2. In **Setup**, check the stock dimensions and lower corner. The viewer reads numbered cutter comments throughout the program, including descriptions beside tool changes. If a size is missing, enter the cutter shape and diameter in millimeters, then choose **Apply stock & tools**.
 3. Switch between **Solid**, **Toolpaths**, and **Cut depth**. Drag the timeline in either direction or jump to a stage or hole. Use **After stage** or **Finished part** to inspect the remaining material.
 4. Drag to rotate the solid, Shift-drag to pan, and scroll to zoom.
 

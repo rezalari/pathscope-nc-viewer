@@ -9,6 +9,7 @@ const slots = {
   SOLID_MESH: 'solid-mesh.js',
   SOLID_CUTTER: 'solid-cutter.js',
   SOLID_RENDER: 'solid-render.js',
+  NC_SOURCE: 'source-list.js',
   VIEWER_APP: 'viewer-app.js'
 };
 function inject(marker, content) {

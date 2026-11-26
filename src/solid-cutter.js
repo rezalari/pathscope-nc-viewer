@@ -37,11 +37,19 @@
         previous = next;
       }
       shoulder = radius;
-    } else if (cutter.shape === "drill") {
-      const half = Math.max(1, Math.min(179, Number(cutter.angle) || 118)) * Math.PI / 360;
-      shoulder = radius / Math.tan(half);
-      const nr = Math.cos(half), nz = -Math.sin(half);
-      band([0, 0, nr, nz], [radius, shoulder, nr, nz]);
+    } else if (cutter.shape === "drill" || cutter.shape === "chamfer") {
+      const chamfer = cutter.shape === "chamfer";
+      const angle = chamfer ? Number(cutter.angle) : Math.max(1, Math.min(179, Number(cutter.angle) || 118));
+      if (!(angle > 0 && angle < 180)) return null;
+      const half = angle * Math.PI / 360;
+      const tipRadius = chamfer ? Number(cutter.tip) / 2 : 0;
+      if (!Number.isFinite(tipRadius) || tipRadius < 0 || tipRadius > radius) return null;
+      if (tipRadius) band([0, 0, 0, -1], [tipRadius, 0, 0, -1]);
+      if (tipRadius < radius) {
+        shoulder = (radius - tipRadius) / Math.tan(half);
+        const nr = Math.cos(half), nz = -Math.sin(half);
+        band([tipRadius, 0, nr, nz], [radius, shoulder, nr, nz]);
+      }
     } else {
       band([0, 0, 0, -1], [radius, 0, 0, -1]);
     }

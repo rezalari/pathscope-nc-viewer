@@ -3,7 +3,7 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; worker-src blob:; style-src 'unsafe-inline'; img-src data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="color-scheme" content="dark"><title>Pathscope NC Viewer</title><meta name="description" content="Free 3D G-code viewer. Open an NC file on your device, preview toolpaths and scrub through the remaining stock.">
 <style>
-:root{--bg:#0d1419;--panel:#152027;--canvas:#11191f;--border:#324047;--text:#f1f4ef;--muted:#a6b4b6;--accent:#b9e49c;--mono:"Cascadia Mono","SFMono-Regular",Consolas,monospace;font-family:"Inter","Segoe UI",system-ui,sans-serif;color:var(--text);background:var(--bg);font-size:14px}*{box-sizing:border-box}body{margin:0}button,select,input{font:inherit}button,select{cursor:pointer}button{display:inline-flex;align-items:center;justify-content:center;gap:7px;background:transparent;border:1px solid var(--border);color:var(--text);border-radius:5px;padding:7px 10px}button:hover,select:hover{background-color:#26343a}button:disabled{opacity:.4;cursor:default}button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}button.primary{color:#18251a;background:var(--accent);border-color:var(--accent);font-weight:650}button.primary:hover{background:#caeeb2}button.on{background:#39494d;color:white;border-color:transparent}button.flat{border-color:transparent;color:var(--muted)}button.flat:hover{color:white}button.ico{width:34px;height:32px;padding:0}button svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.65;stroke-linecap:round;stroke-linejoin:round}input,select{color:var(--text);border:1px solid var(--border);border-radius:4px;background:#10191f;padding:7px}input[type=number]{width:100%;font:12px var(--mono)}input[type=range]{accent-color:var(--accent)}.app{display:flex;flex-direction:column;min-height:680px;height:100dvh}.header{height:64px;flex:none;display:flex;align-items:center;gap:15px;padding:0 20px;border-bottom:1px solid var(--border);background:#152027}.brand{display:flex;align-items:center;gap:9px;font-size:23px;letter-spacing:-1.2px;font-weight:650}.brand svg{width:30px;height:31px}.divider{width:1px;height:22px;background:var(--border)}.filename{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:12px var(--mono);color:#c2cdca}.header-actions{margin-left:auto;display:flex;gap:8px;flex-shrink:0}.work{min-height:0;flex:1;display:grid;grid-template-columns:minmax(0,1fr) 320px}.center{display:grid;min-height:0;min-width:0;grid-template-rows:minmax(250px,1fr) auto}.viewport{min-height:0;position:relative;isolation:isolate;background:var(--canvas);overflow:hidden}.surface{position:absolute;inset:0;touch-action:none}.surface canvas{display:block}.viewtop{pointer-events:none;position:absolute;top:17px;left:17px;right:17px;display:flex;align-items:flex-start;justify-content:space-between;gap:8px}.viewtop>div{pointer-events:auto}.hud{display:flex;align-items:center;gap:4px;background:#162228ed;border:1px solid #35454b;border-radius:6px;padding:3px}.hud button{font-size:12px;border-color:transparent;padding:5px 8px}.hud .depth{border-left:1px solid var(--border);border-radius:0 4px 4px 0}.corner-tools{display:flex;gap:3px;align-items:center;background:#162228ed;border:1px solid var(--border);border-radius:6px;padding:3px}.corner-tools select{border:0;background:transparent;padding:4px;max-width:99px;font-size:12px}.corner-tools button{border:0;width:25px;height:25px}.viewportfooter{position:absolute;bottom:10px;left:15px;display:flex;align-items:center;gap:7px;pointer-events:none}.tag{display:inline-flex;align-items:center;gap:7px;background:#142026e8;border:1px solid #37454a;padding:5px 8px;border-radius:4px;color:#c1cdcc;font:11px var(--mono)}.dot{height:8px;width:8px;border-radius:50%;display:inline-block;background:#96a3ac;flex:none}.dragmask{display:none;position:absolute;inset:10px;z-index:7;background:#14241eeb;border:2px dashed var(--accent);border-radius:8px;align-items:center;justify-content:center;font-weight:600;font-size:22px;pointer-events:none}.dragover .dragmask{display:flex}.busy{position:absolute;z-index:6;inset:0;display:grid;place-items:center;background:#121a20e3;color:#d4dfda}.busy>span{background:#1d2b31;border:1px solid var(--border);padding:13px 18px;border-radius:6px;max-width:90%}.busy[hidden],[hidden]{display:none!important}.sim{background:#172229;border-top:1px solid var(--border);padding:15px 19px 16px}.simrow{display:flex;align-items:center;gap:9px}.simrow h2{font-size:15px;margin:0;font-weight:600}.simrow .time{margin-left:auto}.time{font:12px var(--mono);color:#d6dfdd;white-space:nowrap}.time small{color:var(--muted);font:inherit}.scrubber{margin:14px 0 6px;position:relative;padding:1px 0}.rail{position:absolute;left:1px;right:1px;height:5px;top:8px;background:#415052;border-radius:3px;overflow:hidden}.rail::before{content:'';position:absolute;inset:0 auto 0 0;width:var(--done,0%);background:var(--accent)}.rail i{position:absolute;top:0;width:2px;height:5px;background:#152027}.scrubber input{appearance:none;background:transparent;margin:0;padding:0;display:block;width:100%;height:18px;border:0;position:relative}.scrubber input::-webkit-slider-thumb{appearance:none;width:11px;height:15px;border-radius:3px;background:#d3edbd;box-shadow:0 0 0 2px #21352b}.scrubber input::-moz-range-thumb{width:10px;height:14px;border:0;border-radius:3px;background:var(--accent)}.transports{display:flex;gap:6px;align-items:center;flex-wrap:wrap}.transports select{font-size:12px;height:31px;padding:4px 5px}.lineinfo{margin-left:auto;color:var(--muted);font:11px var(--mono);white-space:nowrap}.usage{color:var(--muted);font-size:11px}.side{min-height:0;border-left:1px solid var(--border);background:var(--panel);display:flex;flex-direction:column}.side-nav{height:52px;display:flex;gap:17px;align-items:stretch;padding:0 18px;border-bottom:1px solid var(--border);flex-shrink:0}.side-nav button{border:0;border-bottom:2px solid transparent;border-radius:0;font-weight:600;padding:0 2px;color:var(--muted);background:transparent}.side-nav button.on{border-color:var(--accent);color:#f1f5ef}.sidebody{padding:15px 17px 24px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:#46545c transparent}.group+.group{border-top:1px solid var(--border);padding-top:16px;margin-top:16px}.group h2,.group summary{margin:0 0 11px;font-size:14px;font-weight:620;letter-spacing:.05px}.group summary{cursor:pointer}.group summary::marker{color:var(--muted)}.ops{display:grid;gap:4px}.op{display:grid;grid-template-columns:8px minmax(0,1fr) auto;border:1px solid transparent;border-radius:4px;padding:6px 7px;gap:9px;text-align:left;width:100%;align-items:center;color:#c8d4d3}.op.active{background:#283a3e;border-color:#3a5054;color:white}.op span:nth-child(2){white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.op small{font:10px var(--mono);color:var(--muted)}.compact{display:flex;align-items:center;gap:6px}.compact select{min-width:0;width:100%;font-size:12px}.jump{margin-top:9px;display:flex;gap:5px;flex-wrap:wrap}.jump button{font-size:11px;padding:4px 6px}.readout{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.readout div{border:1px solid var(--border);border-radius:4px;padding:6px 8px;background:#111b21}.readout span{display:block;color:var(--muted);font:10px var(--mono);margin-bottom:4px}.readout strong{font:13px var(--mono)}.detail{margin:8px 0 0;color:#b3c0c0;font-size:12px;line-height:1.5}.linecode{background:#10191f;border:1px solid var(--border);padding:8px;border-radius:4px;margin-top:8px;font:11px/1.65 var(--mono);overflow:auto;white-space:pre;color:#a8b7b9}.linecode .now{color:#d2efa9}.sectionhead{display:flex;justify-content:space-between;align-items:baseline;gap:8px}.sectionhead small{font:10px var(--mono);color:var(--muted)}.fields{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.fields label,.rowlabel{color:var(--muted);font-size:11px}.fields label input{margin-top:4px}.tool-field{display:grid;align-items:center;gap:7px;grid-template-columns:32px minmax(0,1fr) 65px;font-size:12px;margin:5px 0}.tool-field select{min-width:0;font-size:12px;padding:5px}.tool-field input{padding:5px}.fl{display:flex;align-items:center;gap:4px}.fl b{font:12px var(--mono)}.flags{display:grid;grid-template-columns:1fr 1fr;gap:7px}.flags label{display:flex;align-items:center;gap:5px;color:#ced8d5;font-size:12px}.flags input{accent-color:var(--accent)}.setupapply{margin-top:9px;width:100%}.warn{margin:0 0 12px;background:#3b3023;border-left:3px solid #eab36c;color:#efddbd;padding:8px 10px;border-radius:3px;font-size:12px;line-height:1.45}.warn summary{cursor:pointer;font-weight:600}.warn ul{margin:6px 0 0;padding-left:15px;max-height:100px;overflow:auto}.footer-line{margin-top:8px;display:flex;gap:8px;align-items:center;color:var(--muted);font:11px var(--mono)}.toolbar-caption{font:10px var(--mono);color:var(--muted)}#tool-key{display:flex;flex-wrap:wrap;gap:8px}.keyitem{display:flex;align-items:center;gap:5px;color:#c1cecc;font:10px var(--mono)}dialog{background:#17232a;color:var(--text);border:1px solid var(--border);border-radius:8px;padding:20px;max-width:440px}dialog::backdrop{background:#05090caa}dialog h2{font-size:18px;margin:0 0 10px}dialog p{line-height:1.5;color:#bfccca}.muted{color:var(--muted)}
+:root{--bg:#0d1419;--panel:#152027;--canvas:#11191f;--border:#324047;--text:#f1f4ef;--muted:#a6b4b6;--accent:#b9e49c;--mono:"Cascadia Mono","SFMono-Regular",Consolas,monospace;font-family:"Inter","Segoe UI",system-ui,sans-serif;color:var(--text);background:var(--bg);font-size:14px}*{box-sizing:border-box}body{margin:0}button,select,input{font:inherit}button,select{cursor:pointer}button{display:inline-flex;align-items:center;justify-content:center;gap:7px;background:transparent;border:1px solid var(--border);color:var(--text);border-radius:5px;padding:7px 10px}button:hover,select:hover{background-color:#26343a}button:disabled{opacity:.4;cursor:default}button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}button.primary{color:#18251a;background:var(--accent);border-color:var(--accent);font-weight:650}button.primary:hover{background:#caeeb2}button.on{background:#39494d;color:white;border-color:transparent}button.flat{border-color:transparent;color:var(--muted)}button.flat:hover{color:white}button.ico{width:34px;height:32px;padding:0}button svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.65;stroke-linecap:round;stroke-linejoin:round}input,select{color:var(--text);border:1px solid var(--border);border-radius:4px;background:#10191f;padding:7px}input[type=number]{width:100%;font:12px var(--mono)}input[type=range]{accent-color:var(--accent)}.app{display:flex;flex-direction:column;min-height:680px;height:100dvh}.header{height:64px;flex:none;display:flex;align-items:center;gap:15px;padding:0 20px;border-bottom:1px solid var(--border);background:#152027}.brand{display:flex;align-items:center;gap:9px;font-size:23px;letter-spacing:-1.2px;font-weight:650}.brand svg{width:30px;height:31px}.divider{width:1px;height:22px;background:var(--border)}.filename{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:12px var(--mono);color:#c2cdca}.header-actions{margin-left:auto;display:flex;gap:8px;flex-shrink:0}.work{min-height:0;flex:1;display:grid;grid-template-columns:minmax(0,1fr) 320px}.center{display:grid;min-height:0;min-width:0;grid-template-rows:minmax(250px,1fr) auto}.viewport{min-height:0;position:relative;isolation:isolate;background:var(--canvas);overflow:hidden}.surface{position:absolute;inset:0;touch-action:none}.surface canvas{display:block}.viewtop{pointer-events:none;position:absolute;top:17px;left:17px;right:17px;display:flex;align-items:flex-start;justify-content:space-between;gap:8px}.viewtop>div{pointer-events:auto}.hud{display:flex;align-items:center;gap:4px;background:#162228ed;border:1px solid #35454b;border-radius:6px;padding:3px}.hud button{font-size:12px;border-color:transparent;padding:5px 8px}.hud .depth{border-left:1px solid var(--border);border-radius:0 4px 4px 0}.corner-tools{display:flex;gap:3px;align-items:center;background:#162228ed;border:1px solid var(--border);border-radius:6px;padding:3px}.corner-tools select{border:0;background:transparent;padding:4px;max-width:99px;font-size:12px}.corner-tools button{border:0;width:25px;height:25px}.viewportfooter{position:absolute;bottom:10px;left:15px;display:flex;align-items:center;gap:7px;pointer-events:none}.tag{display:inline-flex;align-items:center;gap:7px;background:#142026e8;border:1px solid #37454a;padding:5px 8px;border-radius:4px;color:#c1cdcc;font:11px var(--mono)}.dot{height:8px;width:8px;border-radius:50%;display:inline-block;background:#96a3ac;flex:none}.dragmask{display:none;position:absolute;inset:10px;z-index:7;background:#14241eeb;border:2px dashed var(--accent);border-radius:8px;align-items:center;justify-content:center;font-weight:600;font-size:22px;pointer-events:none}.dragover .dragmask{display:flex}.busy{position:absolute;z-index:6;inset:0;display:grid;place-items:center;background:#121a20e3;color:#d4dfda}.busy>span{background:#1d2b31;border:1px solid var(--border);padding:13px 18px;border-radius:6px;max-width:90%}.busy[hidden],[hidden]{display:none!important}.sim{background:#172229;border-top:1px solid var(--border);padding:15px 19px 16px}.simrow{display:flex;align-items:center;gap:9px}.simrow h2{font-size:15px;margin:0;font-weight:600}.simrow .time{margin-left:auto}.time{font:12px var(--mono);color:#d6dfdd;white-space:nowrap}.time small{color:var(--muted);font:inherit}.scrubber{margin:14px 0 6px;position:relative;padding:1px 0}.rail{position:absolute;left:1px;right:1px;height:5px;top:8px;background:#415052;border-radius:3px;overflow:hidden}.rail::before{content:'';position:absolute;inset:0 auto 0 0;width:var(--done,0%);background:var(--accent)}.rail i{position:absolute;top:0;width:2px;height:5px;background:#152027}.scrubber input{appearance:none;background:transparent;margin:0;padding:0;display:block;width:100%;height:18px;border:0;position:relative}.scrubber input::-webkit-slider-thumb{appearance:none;width:11px;height:15px;border-radius:3px;background:#d3edbd;box-shadow:0 0 0 2px #21352b}.scrubber input::-moz-range-thumb{width:10px;height:14px;border:0;border-radius:3px;background:var(--accent)}.transports{display:flex;gap:6px;align-items:center;flex-wrap:wrap}.transports select{font-size:12px;height:31px;padding:4px 5px}.lineinfo{margin-left:auto;color:var(--muted);font:11px var(--mono);white-space:nowrap}.usage{color:var(--muted);font-size:11px}.side{min-height:0;border-left:1px solid var(--border);background:var(--panel);display:flex;flex-direction:column}.side-nav{height:52px;display:flex;gap:17px;align-items:stretch;padding:0 18px;border-bottom:1px solid var(--border);flex-shrink:0}.side-nav button{border:0;border-bottom:2px solid transparent;border-radius:0;font-weight:600;padding:0 2px;color:var(--muted);background:transparent}.side-nav button.on{border-color:var(--accent);color:#f1f5ef}.sidebody{padding:15px 17px 24px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:#46545c transparent}.group+.group{border-top:1px solid var(--border);padding-top:16px;margin-top:16px}.group h2,.group summary{margin:0 0 11px;font-size:14px;font-weight:620;letter-spacing:.05px}.group summary{cursor:pointer}.group summary::marker{color:var(--muted)}.ops{display:grid;gap:4px}.op{display:grid;grid-template-columns:8px minmax(0,1fr) auto;border:1px solid transparent;border-radius:4px;padding:6px 7px;gap:9px;text-align:left;width:100%;align-items:center;color:#c8d4d3}.op.active{background:#283a3e;border-color:#3a5054;color:white}.op span:nth-child(2){white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.op small{font:10px var(--mono);color:var(--muted)}.compact{display:flex;align-items:center;gap:6px}.compact select{min-width:0;width:100%;font-size:12px}.jump{margin-top:9px;display:flex;gap:5px;flex-wrap:wrap}.jump button{font-size:11px;padding:4px 6px}.readout{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.readout div{border:1px solid var(--border);border-radius:4px;padding:6px 8px;background:#111b21}.readout span{display:block;color:var(--muted);font:10px var(--mono);margin-bottom:4px}.readout strong{font:13px var(--mono)}.detail{margin:8px 0 0;color:#b3c0c0;font-size:12px;line-height:1.5}.sectionhead{display:flex;justify-content:space-between;align-items:baseline;gap:8px}.sectionhead small{font:10px var(--mono);color:var(--muted)}.fields{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.fields label,.rowlabel{color:var(--muted);font-size:11px}.fields label input{margin-top:4px}.tool-field{display:grid;align-items:center;gap:7px;grid-template-columns:32px minmax(0,1fr) 65px;font-size:12px;margin:5px 0}.tool-field select{min-width:0;font-size:12px;padding:5px}.tool-field input{padding:5px}.fl{display:flex;align-items:center;gap:4px}.fl b{font:12px var(--mono)}.flags{display:grid;grid-template-columns:1fr 1fr;gap:7px}.flags label{display:flex;align-items:center;gap:5px;color:#ced8d5;font-size:12px}.flags input{accent-color:var(--accent)}.setupapply{margin-top:9px;width:100%}.warn{margin:0 0 12px;background:#3b3023;border-left:3px solid #eab36c;color:#efddbd;padding:8px 10px;border-radius:3px;font-size:12px;line-height:1.45}.warn summary{cursor:pointer;font-weight:600}.warn ul{margin:6px 0 0;padding-left:15px;max-height:100px;overflow:auto}.footer-line{margin-top:8px;display:flex;gap:8px;align-items:center;color:var(--muted);font:11px var(--mono)}.toolbar-caption{font:10px var(--mono);color:var(--muted)}#tool-key{display:flex;flex-wrap:wrap;gap:8px}.keyitem{display:flex;align-items:center;gap:5px;color:#c1cecc;font:10px var(--mono)}dialog{background:#17232a;color:var(--text);border:1px solid var(--border);border-radius:8px;padding:20px;max-width:440px}dialog::backdrop{background:#05090caa}dialog h2{font-size:18px;margin:0 0 10px}dialog p{line-height:1.5;color:#bfccca}.muted{color:var(--muted)}
 @media(min-width:1450px){.work{grid-template-columns:minmax(0,1fr) 355px}.sidebody{padding:19px 21px}.op{padding:8px 9px}}
 @media(max-width:930px){.work{grid-template-columns:minmax(0,1fr) 277px}.sidebody{padding:13px 12px}.header{padding:0 12px}.viewportfooter{left:8px}.viewtop{top:8px;left:8px;right:8px}.hud button{padding:5px}.usage{display:none}.lineinfo{font-size:10px}}
 @media(max-width:730px){.app{min-height:100dvh;height:auto}.header{height:54px;gap:7px}.brand{font-size:20px}.filename,.header>.divider{display:none}.header-actions{gap:5px}.work{display:flex;flex-direction:column}.center{height:65dvh;min-height:405px}.side{border-left:0;border-top:1px solid var(--border)}.sidebody{max-height:none}.side-nav{height:41px}.sim{padding:10px}.viewtop{align-items:flex-start}.corner-tools select{width:71px}.op{padding:5px}.sidebody{padding:13px 15px}.viewportfooter .tag{font-size:10px}.lineinfo{display:none}}
@@ -23,6 +23,12 @@
 #solid-engagement[data-state=air]{color:#edc07b}
 @media(max-width:730px){#solid-inspect{font-size:11px}.solid-metrics{gap:4px 10px}}
 @media(max-width:450px){.header{gap:5px;padding-inline:8px}.header-actions{gap:3px}.header-actions button{padding-inline:6px}}
+.source-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}.source-head h2{margin:0}.source-jump{display:flex;align-items:center;gap:4px}.source-jump input{width:85px;padding:4px 6px;font:11px var(--mono)}.source-jump button{padding:4px 8px;font-size:11px}
+.linecode{position:relative;height:264px;overflow:auto;background:#10191f;border:1px solid var(--border);border-radius:4px;color:#bcc7ca;font:12px/22px var(--mono);scrollbar-color:#52646a #10191f;overflow-anchor:none}.linecode:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.source-track{position:relative;min-width:100%}.source-rows{position:absolute;left:0;min-width:100%;width:max-content}.source-row{display:flex;height:22px;align-items:center;white-space:pre;cursor:pointer;padding-right:8px}.source-number{color:#84959c;text-align:right;flex:0 0 auto;min-width:calc(var(--line-digits)*1ch + 12px);padding:0 7px 0 5px;margin-right:6px;border-right:1px solid #35424a;user-select:none}
+.source-row:hover{background:#233239}.source-row.now{background:#2d4136;color:#d9f2bd;box-shadow:inset 3px 0 #b9e49c}.source-row.picked{background:#263c49;color:#d2e8ef;box-shadow:inset 3px 0 #78b2ca}.source-row.now .source-number,.source-row.picked .source-number{color:inherit}
+.source-note{font-size:11px;color:var(--muted);margin:5px 0 0}.source-note:empty{display:none}
+.source-track{overflow-y:clip}.chamfer-fields{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:4px 0 8px 39px}.chamfer-fields label{font-size:11px;color:var(--muted)}.chamfer-fields input{margin-top:3px;padding:4px}
 </style></head>
 <body><main class="app"><header class="header"><div class="brand"><svg viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M2 9.5 16 2l14 7.5L16 17 2 9.5Z" stroke="#b9e49c" stroke-width="2"/><path d="m3 16 13 7 13-7M3 22.5 16 30l13-7.5" stroke="#b9e49c" stroke-width="2"/></svg><span>Pathscope<small class="brand-sub">NC Viewer</small></span></div><div class="divider"></div><div class="filename" id="filename" title="Current NC file">NC viewer</div><div class="header-actions"><button id="demo-btn" class="flat">Load demo</button><button id="open-btn" class="primary"><svg viewBox="0 0 24 24"><path d="M3 17V6h7l2 2h8v3M3 18l3-7h15l-3 8H3z"/></svg>Open NC file</button></div><input type="file" id="file" accept=".nc,.cnc,.gcode,.gc,.tap,.ngc,.txt,.ncc,.iso,.gco,*/*" hidden></header>
 <section class="work"><div class="center"><div class="viewport" id="viewport"><div id="solid-surface" class="surface" aria-label="Rotatable 3D remaining stock"></div><div id="path-surface" class="surface" aria-label="Interactive toolpath" hidden></div><div id="depth-surface" class="surface" aria-label="Simulated cut depths" hidden></div>
@@ -41,7 +47,8 @@
 <details id="warnings" class="warn" hidden><summary id="warning-title"></summary><ul id="warning-items"></ul></details>
 <div id="job-panel"><button id="configure-tools" hidden>Set cutter sizes for solid preview</button><section class="group"><div class="sectionhead"><h2>Operations</h2><small id="op-count"></small></div><div class="ops" id="operations"></div></section>
 <section class="group"><h2>Jump to move</h2><div class="compact"><select id="stage-select" aria-label="Select individual program stage"></select></div><div class="compact" id="hole-block" style="margin-top:6px"><select id="hole-select" aria-label="Select individual hole"></select></div><div class="jump"><button id="to-stage-end" title="Show the solid material left after the selected stage">After stage</button><button id="to-entry" title="Go to the endpoint of the first spindle-on feed starting into the job">First feed</button><button id="to-contact" title="First estimated tool contact with the configured stock">Stock contact</button></div></section>
-<section class="group"><div class="sectionhead"><h2>Tool position</h2><small>mm</small></div><div class="readout"><div><span>X</span><strong id="px">—</strong></div><div><span>Y</span><strong id="py">—</strong></div><div><span>Z</span><strong id="pz">—</strong></div></div><div class="footer-line" id="motion-data"></div><div class="linecode" id="linecode" aria-label="NC source at current tool position"></div></section>
+<section class="group"><div class="sectionhead"><h2>Tool position</h2><small>mm</small></div><div class="readout"><div><span>X</span><strong id="px">—</strong></div><div><span>Y</span><strong id="py">—</strong></div><div><span>Z</span><strong id="pz">—</strong></div></div><div class="footer-line" id="motion-data"></div></section>
+<section class="group"><div class="source-head"><h2 id="source-title">G-code</h2><div class="source-jump"><input id="source-line" type="number" min="1" step="1" inputmode="numeric" placeholder="Line #" aria-label="Go to physical line number"><button id="source-go" type="button">Go</button></div></div><div class="linecode" id="linecode" role="listbox" tabindex="0" aria-labelledby="source-title" aria-describedby="source-note" title="Select a line to pause at its first motion. Use the arrow keys to move between lines."></div><p class="source-note" id="source-note" role="status"></p></section>
 <section class="group"><h2>Path colors</h2><div id="tool-key"></div><p class="detail" id="job-note">Time estimates include feed moves and modeled rapids.</p></section></div>
 <div id="setup-panel" hidden><section class="group"><h2>Stock dimensions</h2><div class="fields" id="stock-size"></div><h2 style="margin-top:16px">Stock lower corner</h2><div class="fields" id="stock-pos"></div><p class="detail" id="stock-hint"></p></section><section class="group"><div class="sectionhead"><h2>Cutters</h2><small>Ø mm</small></div><div id="tool-fields"></div><button class="setupapply" id="apply">Apply stock &amp; tools</button><p class="detail" id="setup-msg" aria-live="polite"></p></section>
 <section class="group"><h2>Path display</h2><div class="flags" id="flags"></div></section>
@@ -615,10 +622,15 @@
       const radius = Number(definition.d) / 2;
       if (!Number.isFinite(radius) || radius <= 0) continue;
       const shape = (definition.shape || "flat").toLowerCase();
-      const angle = Math.max(1, Math.min(179, Number(definition.angle) || 118));
+      const chamfer = shape === "chamfer";
+      const angle = chamfer ? Number(definition.angle) : Math.max(1, Math.min(179, Number(definition.angle) || 118));
+      if (!(angle > 0 && angle < 180)) continue;
       const slope = 1 / Math.tan(angle * Math.PI / 360);
       const ball = shape.includes("ball"), cone = /drill|cone|engrave|chamfer|v-bit/.test(shape);
-      tools[key] = {radius, ball, cone, slope, angle, shape: ball ? "ball" : cone ? "drill" : "flat"};
+      const tipRadius = chamfer ? Number(definition.tip) / 2 : 0;
+      if (!Number.isFinite(tipRadius) || tipRadius < 0 || tipRadius > radius) continue;
+      tools[key] = {radius, tipRadius, ball, cone, slope, angle,
+        shape: ball ? "ball" : chamfer ? "chamfer" : cone ? "drill" : "flat"};
     }
 
     let xmin = Infinity, ymin = Infinity, xmax = -Infinity, ymax = -Infinity;
@@ -695,8 +707,16 @@
               const tmin = Math.max(0, t0 - half), tmax = Math.min(1, t0 + half);
               if (tmin > tmax) continue;
               if (tip.ball) t = clamp(t0 - slopeFactor * half, tmin, tmax);
-              else if (tip.cone && Math.abs(m) < tip.slope)
-                t = clamp(t0 - slopeFactor * Math.sqrt(perp2) / len, tmin, tmax);
+              else if (tip.cone && Math.abs(m) < tip.slope) {
+                let shift = slopeFactor * Math.sqrt(perp2);
+                // If the pointed cone's optimum falls on the tip flat, its
+                // downhill edge gives the deepest contact on a ramp.
+                if (tip.tipRadius && perp2 < tip.tipRadius * tip.tipRadius) {
+                  const edge = Math.sqrt(tip.tipRadius * tip.tipRadius - perp2);
+                  shift = Math.sign(m) * Math.max(Math.abs(shift), edge);
+                }
+                t = clamp(t0 - shift / len, tmin, tmax);
+              }
               else t = dz >= 0 ? tmin : tmax;
             }
             const du = u - dx * t, dv = v - dy * t;
@@ -705,7 +725,7 @@
           }
           if (distance2 > r2 + 1e-9) continue;
           if (tip.ball) baseZ += r - Math.sqrt(Math.max(0, r2 - distance2));
-          else if (tip.cone) baseZ += Math.sqrt(Math.max(0, distance2)) * tip.slope;
+          else if (tip.cone) baseZ += Math.max(0, Math.sqrt(distance2) - tip.tipRadius) * tip.slope;
           // Reserve 65535 for an actual breakthrough. Quantizing a very thin floor must leave it solid.
           const removed = baseZ <= z ? 65535 : Math.min(65534, Math.round((top - baseZ) * factor));
           if (removed > pixels[idx]) {
@@ -791,6 +811,7 @@
         }
         cutter = {x:xyz[p] + f * dx, y:xyz[p + 1] + f * dy, z:xyz[p + 2] + f * dz,
           tool:slot, d:tip ? 2 * tip.radius : 0, shape:tip?.shape || "", angle:tip?.angle || 0, state, move};
+        if (tip?.shape === "chamfer") cutter.tip = 2 * tip.tipRadius;
       }
       let totalUnits = 0;
       for (let j = 0; j < image.length; j++) totalUnits += image[j];
@@ -1438,11 +1459,19 @@ if (typeof module !== "undefined" && module.exports) module.exports = {buildSoli
         previous = next;
       }
       shoulder = radius;
-    } else if (cutter.shape === "drill") {
-      const half = Math.max(1, Math.min(179, Number(cutter.angle) || 118)) * Math.PI / 360;
-      shoulder = radius / Math.tan(half);
-      const nr = Math.cos(half), nz = -Math.sin(half);
-      band([0, 0, nr, nz], [radius, shoulder, nr, nz]);
+    } else if (cutter.shape === "drill" || cutter.shape === "chamfer") {
+      const chamfer = cutter.shape === "chamfer";
+      const angle = chamfer ? Number(cutter.angle) : Math.max(1, Math.min(179, Number(cutter.angle) || 118));
+      if (!(angle > 0 && angle < 180)) return null;
+      const half = angle * Math.PI / 360;
+      const tipRadius = chamfer ? Number(cutter.tip) / 2 : 0;
+      if (!Number.isFinite(tipRadius) || tipRadius < 0 || tipRadius > radius) return null;
+      if (tipRadius) band([0, 0, 0, -1], [tipRadius, 0, 0, -1]);
+      if (tipRadius < radius) {
+        shoulder = (radius - tipRadius) / Math.tan(half);
+        const nr = Math.cos(half), nz = -Math.sin(half);
+        band([tipRadius, 0, nr, nz], [radius, shoulder, nr, nz]);
+      }
     } else {
       band([0, 0, 0, -1], [radius, 0, 0, -1]);
     }
@@ -1741,7 +1770,7 @@ if (typeof module !== "undefined" && module.exports) module.exports = {buildSoli
     displayedCutter(frame){
       const c=frame?.cutter;
       if(!this.showCutter||!c||!(c.d>0)||c.state==='complete'||![c.x,c.y,c.z].every(Number.isFinite))return null;
-      const key=JSON.stringify([c.d,c.shape,c.angle]);
+      const key=JSON.stringify([c.d,c.shape,c.angle,c.tip]);
       if(key!==this.toolShapeKey){
         this.toolShape=globalThis.buildCutterMesh?.(c);
         this.toolShapeKey=key;
@@ -1860,6 +1889,158 @@ if (typeof module !== "undefined" && module.exports) module.exports = {buildSoli
   if(typeof module!=='undefined'&&module.exports)module.exports={NCSolidRenderer,rasterize,basis,gpu};
 })();
 </script>
+<script>/* Virtual G-code source listing. Input text has the same normalized LF line endings as the parser. */
+(function () {
+  'use strict';
+  const rowHeight = 22, maxHeight = 8000000, stride = 128;
+
+  function indexSource(text) {
+    const anchors = [0];
+    let count = text.length ? 1 : 0;
+    for (let p = text.indexOf('\n'); p >= 0 && p + 1 < text.length; p = text.indexOf('\n',p + 1)) {
+      if (count % stride === 0) anchors.push(p + 1);
+      count++;
+    }
+    function lines(first, last) {
+      const block = Math.floor((first - 1) / stride), result = [];
+      let offset = anchors[block];
+      for (let n = block * stride + 1; n <= last && n <= count; n++) {
+        const next = text.indexOf('\n', offset);
+        if (n >= first) result.push(text.slice(offset, next < 0 ? text.length : next));
+        offset = next + 1;
+      }
+      return result;
+    }
+    return {count, lines};
+  }
+
+  function timeForLine(job, line) {
+    let lo = 0, hi = job.count;
+    while (lo < hi) {
+      const mid = lo + Math.floor((hi-lo)/2);
+      if (job.line[mid] < line) lo = mid + 1; else hi = mid;
+    }
+    return lo === job.count ? job.duration : lo ? job.endTime[lo-1] : 0;
+  }
+
+  function NCSourceList({viewport, input, go, note, onSeek}) {
+    const track = document.createElement('div'), rows = document.createElement('div');
+    track.className = 'source-track'; rows.className = 'source-rows';
+    track.append(rows); viewport.append(track);
+    const pool = [];
+    let source = indexSource(''), job = null, active = 0, selected = 0;
+    let firstRow = 0, lastRow = 0, pending = false, wheelRemainder = 0;
+
+    function layout() {
+      const height = viewport.clientHeight || 264, logicalMax = Math.max(0, source.count*rowHeight - height);
+      const nativeMax = Math.max(0, Math.min(maxHeight, source.count*rowHeight) - height);
+      const scale = nativeMax ? logicalMax/nativeMax : 1;
+      const nativeTop = Math.max(0, Math.min(nativeMax, viewport.scrollTop || 0));
+      return {height, nativeMax, scale, nativeTop, top:nativeTop*scale};
+    }
+    function makeRow() {
+      const node = document.createElement('div'), number = document.createElement('span'), code = document.createElement('span');
+      node.className = 'source-row'; node.id = 'source-row-' + pool.length;
+      node.setAttribute('role','option'); number.className = 'source-number';
+      node.append(number, code); rows.append(node);
+      node.addEventListener('click', () => {viewport.focus({preventScroll:true}); select(Number(node.dataset.line));});
+      const row = {node, number, code}; pool.push(row); return row;
+    }
+    function paint() {
+      pending = false;
+      const {height, nativeTop, top} = layout();
+      const first = Math.max(1, Math.floor(top/rowHeight) + 1 - 3);
+      const last = Math.min(source.count, Math.ceil((top+height)/rowHeight) + 3);
+      const changed = first !== firstRow || last !== lastRow;
+      const text = changed && last >= first ? source.lines(first, last) : [];
+      rows.style.top = (nativeTop + (first-1)*rowHeight - top) + 'px';
+      let descendant = '';
+      for (let n = first; n <= last; n++) {
+        const slot = n - first, {node,number,code} = pool[slot] || makeRow();
+        if (changed) {
+          node.hidden = false; node.dataset.line = String(n);
+          node.setAttribute('aria-posinset',String(n)); node.setAttribute('aria-setsize',String(source.count));
+          number.textContent = String(n); code.textContent = text[slot];
+        }
+        const picked = n === selected, current = n === active;
+        node.classList.toggle('now',current); node.classList.toggle('picked',picked && !current);
+        node.setAttribute('aria-current',current ? 'step' : 'false'); node.setAttribute('aria-selected',String(picked));
+        if (picked) descendant = node.id;
+      }
+      for (let i = Math.max(0,last-first+1); i < pool.length; i++) pool[i].node.hidden = true;
+      viewport.setAttribute('aria-activedescendant',descendant);
+      firstRow = first; lastRow = last;
+    }
+    function schedule() {
+      if (!pending) {pending = true; requestAnimationFrame(paint);}
+    }
+    function reveal(n) {
+      const {height, top, scale, nativeMax} = layout(), y = (n-1)*rowHeight;
+      if (n && (y < top || y + rowHeight > top+height)) {
+        viewport.scrollTop = Math.max(0, Math.min(nativeMax, (y-(height-rowHeight)/2)/scale));
+      }
+    }
+    function select(n) {
+      if (!job || !source.count) return;
+      if (!Number.isInteger(n) || n < 1 || n > source.count) {
+        note.textContent = 'Enter a line from 1 to ' + source.count.toLocaleString() + '.'; return;
+      }
+      input.value = String(n);
+      onSeek(timeForLine(job,n), n);
+    }
+    function setPosition(line, chosen) {
+      const next = chosen ?? line, changed = active !== line || selected !== next;
+      active = line; selected = next;
+      if (chosen !== undefined && chosen !== line) {
+        note.textContent = !line ? 'No simulated motion.' : chosen < line ? 'Next motion is on line ' + line.toLocaleString() + '.' : 'End of program after line ' + line.toLocaleString() + '.';
+      } else note.textContent = '';
+      const previousTop = viewport.scrollTop;
+      reveal(next);
+      if (changed || viewport.scrollTop !== previousTop) paint();
+    }
+    viewport.addEventListener('scroll', schedule);
+    // The scrollbar maps the entire file even above browsers' maximum CSS
+    // layout heights. Keep wheel/trackpad deltas in normal, readable row units.
+    viewport.addEventListener('wheel', e => {
+      const {nativeMax, nativeTop, height, scale} = layout();
+      if (scale === 1 || !e.deltaY || e.ctrlKey || e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+      if ((nativeTop <= 0 && e.deltaY < 0) || (nativeTop >= nativeMax && e.deltaY > 0)) return;
+      e.preventDefault();
+      const multiplier = e.deltaMode === 1 ? rowHeight : e.deltaMode === 2 ? height : 1;
+      const delta = e.deltaY*multiplier/scale + wheelRemainder;
+      viewport.scrollTop = Math.max(0, Math.min(nativeMax, nativeTop+delta));
+      wheelRemainder = nativeTop+delta-viewport.scrollTop;
+      if (Math.abs(wheelRemainder) > 1) wheelRemainder = 0;
+    }, {passive:false});
+    viewport.addEventListener('keydown', e => {
+      if (!source.count || e.ctrlKey || e.altKey || e.metaKey || e.shiftKey) return;
+      const {height, top} = layout(), first = Math.floor(top/rowHeight)+1;
+      const page = Math.max(1, Math.floor(height/rowHeight));
+      const base = selected >= first && selected < first + page ? selected : first;
+      const targets = {ArrowUp:base-1,ArrowDown:base+1,PageUp:base-page,PageDown:base+page,
+        Home:1,End:source.count,Enter:base,' ':base};
+      if (!Object.hasOwn(targets,e.key)) return;
+      e.preventDefault(); e.stopPropagation(); select(Math.max(1,Math.min(source.count,targets[e.key])));
+    });
+    go.addEventListener('click', () => select(input.valueAsNumber));
+    input.addEventListener('keydown', e => {if (e.key === 'Enter') {e.preventDefault(); select(input.valueAsNumber);}});
+    if (typeof ResizeObserver !== 'undefined') new ResizeObserver(schedule).observe(viewport);
+    return {
+      setJob(text,nextJob) {
+        source = indexSource(text); job = nextJob; active = selected = 0; firstRow = lastRow = 0; wheelRemainder = 0;
+        viewport.scrollTop = viewport.scrollLeft = 0;
+        track.style.height = Math.min(maxHeight,source.count*rowHeight) + 'px';
+        rows.style.setProperty('--line-digits',String(String(source.count).length));
+        input.value = ''; input.max = String(source.count); input.disabled = go.disabled = !source.count;
+        note.textContent = ''; paint();
+      },
+      get count() {return source.count;}, setPosition, select
+    };
+  }
+  globalThis.NCSourceList = NCSourceList;
+  if (typeof module !== 'undefined' && module.exports) module.exports = {NCSourceList,indexSource,timeForLine};
+})();
+</script>
 <script>(() => {
   'use strict';
   const by = id => document.getElementById(id);
@@ -1875,7 +2056,9 @@ if (typeof module !== "undefined" && module.exports) module.exports = {buildSoli
   const stockKeys=['l','w','h','x','y','z'];
   const flags={rapid:true,future:true,stock:true,grid:true,markers:true,tool:true};
   const flagNames={rapid:'Rapids',future:'Future paths',stock:'Stock',grid:'Grid',markers:'Entry markers',tool:'Cutter'};
-  let job=null, source='', starts=null, ticket=0, playing=false, lastTick=0, time=0, view='solid', seq=[], stageNodes=[], lastLine=0, contact=null, entry=null, stageId=-1, stock={}, cutTools={}, dragCount=0, loadState=false;
+  let job=null, source='', ticket=0, playing=false, lastTick=0, time=0, view='solid', seq=[], stageNodes=[], contact=null, entry=null, stageId=-1, stock={}, cutTools={}, dragCount=0, loadState=false;
+  const sourceList=NCSourceList({viewport:by('linecode'),input:by('source-line'),go:by('source-go'),note:by('source-note'),
+    onSeek:(seconds,line)=>{pause();seek(seconds,line);}});
   function notice(title,msg) { by('msgtitle').textContent=title; by('msgtext').textContent=msg; by('msg').showModal(); }
   function busy(text) { by('busy').hidden=!text; if(text) by('busy').firstElementChild.textContent=text; }
   const path=new NCRenderer(by('path-surface'),{onViewChange:name=>{
@@ -1961,15 +2144,12 @@ if (typeof module !== "undefined" && module.exports) module.exports = {buildSoli
   function startSec(i){return i>0?job.endTime[i-1]:0;}
   function point(i,f){const p=6*i;return [0,1,2].map(k=>job.xyz[p+k]+(job.xyz[p+k+3]-job.xyz[p+k])*f);}
   function toolData(j){const t=j.tool;return j.tools.length?j.tools:(t.length?[t[0]]:[]);}
-  function lineNumber(n){if(!starts||n<1||n>starts.length) return '';const e=n<starts.length?starts[n]-1:source.length;return source.slice(starts[n-1],Math.min(e,starts[n-1]+230)).trimEnd();}
-  function indexLines(s){const positions=new Int32Array((job.lineCount||1)+1);let count=1;for(let i=s.indexOf('\n');i>=0;i=s.indexOf('\n',i+1))positions[count++]=i+1;return positions.subarray(0,count);}
-  function drawSource(n){if(n===lastLine)return;lastLine=n;const pane=by('linecode');pane.replaceChildren();for(let i=Math.max(1,n-1);i<=Math.min(n+1,starts.length);i++){const row=el('div',i===n?'now':'',String(i).padStart(5,' ')+'  '+lineNumber(i));pane.append(row);} }
-  function seek(value) {
+  function seek(value,chosenLine) {
     if(!job?.count){
       time=0;by('progress').value='0';by('progress').setAttribute('aria-valuetext','No motions');
       by('rail').style.setProperty('--done','0%');by('elapsed').textContent='00:00';
       for(const k of ['px','py','pz'])by(k).textContent='–';
-      by('linecode').replaceChildren();by('lineinfo').textContent='';by('motion-data').textContent='';by('view-state').textContent='No motions';
+      sourceList.setPosition(0,chosenLine);by('lineinfo').textContent='';by('motion-data').textContent='';by('view-state').textContent='No motions';
       return;
     }
     time=clamp(value,0,job.duration);const ratio=job.duration?time/job.duration:0,i=inSegment(time),a=startSec(i),b=job.endTime[i],p=point(i,b>a?clamp((time-a)/(b-a),0,1):1);
@@ -1978,8 +2158,8 @@ if (typeof module !== "undefined" && module.exports) module.exports = {buildSoli
     const t=job.tool[i],mode=['Rapid','Feed','Dwell'][job.kind[i]]||'Move';
     by('view-state').textContent=(t?'T'+t:'Tool ?')+' · '+mode;by('tool-dot').style.background=job.kind[i]===0?'#b5c3d2':color(t);
     by('motion-data').textContent=(t?'T'+t:'Unknown tool')+'  ·  '+mode+(job.kind[i]===1?'  '+job.feed[i].toFixed(0)+' mm/min':'')+'  ·  '+(job.spindle[i]?'Spindle on':'Spindle off');
-    by('lineinfo').textContent='Line '+job.line[i].toLocaleString()+' / '+job.lineCount.toLocaleString();
-    drawSource(job.line[i]);
+    by('lineinfo').textContent='Line '+job.line[i].toLocaleString()+' / '+sourceList.count.toLocaleString();
+    sourceList.setPosition(job.line[i],chosenLine);
     const active=nearestStage(seq,time);if(stageId!==active){if(stageId>=0&&stageNodes[stageId])stageNodes[stageId].classList.remove('active');stageNodes[active]?.classList.add('active');stageId=active;}
     const n=nearestStage(job.stages,time);by('stage-select').value=String(n);
     const h=job.holes.length?nearestStage(job.holes,time):-1;
@@ -2019,6 +2199,14 @@ if (typeof module !== "undefined" && module.exports) module.exports = {buildSoli
       const n = Number(number);
       if(!Object.hasOwn(result,n)) continue;
 
+      if(keyword && /^\s*chamfer\b/i.test(description)){
+        const geometry=/^\s*chamfer\s+A(\d+(?:\.\d*)?|\.\d+)\s+TIP(\d+(?:\.\d*)?|\.\d+)\s*$/i.exec(description);
+        const angle=Number(geometry?.[1]),tip=Number(geometry?.[2]),d=Number(diameter);
+        const valid=(!unit || /^mm$/i.test(unit)) && d>0 && angle>0 && angle<180 && tip>=0 && tip<=d;
+        declarations.push({n,diameter:d,scale:1,shape:'chamfer',angle,tip,invalid:!valid});
+        continue;
+      }
+
       // The solid engine models flat, spherical and conical ends. Names such as
       // "tapered ball" or "bull nose" need an explicit choice in Setup.
       if(/\b(?:taper(?:ed)?|bull[ -]?nose|chamfer|engraver|countersink|counterbore|spot[ -]?drill|cent(?:er|re)[ -]?drill|lollipop|dovetail)\b/i.test(description)) continue;
@@ -2034,14 +2222,15 @@ if (typeof module !== "undefined" && module.exports) module.exports = {buildSoli
       declarations.push({n,diameter:Number(diameter),scale,shape:ball?'ball':drill?'drill':'flat'});
     }
     const ambiguous = new Set();
-    for(const {n,diameter,scale,shape} of declarations){
+    for(const {n,diameter,scale,shape,angle,tip,invalid} of declarations){
       const d = diameter * (scale ?? firstUnits ?? 1);
+      if(invalid){result[n]={d:0,shape};ambiguous.add(n);continue;}
       if(!Number.isFinite(d) || d<=0 || ambiguous.has(n)) continue;
       const prior=result[n];
-      if(prior.d && (Math.abs(d-prior.d)>1e-5 || prior.shape!==shape)){
+      if(prior.d && (Math.abs(d-prior.d)>1e-5 || prior.shape!==shape || prior.angle!==angle || prior.tip!==tip)){
         ambiguous.add(n);
         result[n]={d:0,shape:'flat'};
-      }else result[n]={d,shape};
+      }else result[n]=shape==='chamfer'?{d,shape,angle,tip}:{d,shape};
     }
     return result;
   }
@@ -2057,9 +2246,16 @@ if (typeof module !== "undefined" && module.exports) module.exports = {buildSoli
     const f=by('tool-fields');f.replaceChildren();
     for(const [ns,info] of Object.entries(cutTools)){
       const n=Number(ns),r=el('div','tool-field'),t=el('span','fl');t.append(colors(n),el('b','',n?'T'+n:'T?'));const sel=el('select');sel.id='shape-'+ns;sel.setAttribute('aria-label','T'+n+' cutter shape');
-      for(const v of ['flat','ball','drill'])sel.append(option({flat:'Flat end',ball:'Ball nose',drill:'Twist drill'}[v],v));sel.value=info.shape;
+      for(const [v,label] of Object.entries({flat:'Flat end',ball:'Ball nose',drill:'Twist drill',chamfer:'Chamfer mill'}))sel.append(option(label,v));sel.value=info.shape;
       const num=el('input');num.type='number';num.step='any';num.min='0';num.value=String(info.d);num.id='dia-'+ns;num.setAttribute('aria-label','T'+n+' diameter in millimetres');
       r.append(t,sel,num);f.append(r);
+      const extra=el('div','chamfer-fields');extra.hidden=sel.value!=='chamfer';
+      for(const [prop,name] of [['angle','Included angle (°)'],['tip','Flat tip Ø (mm)']]){
+        const label=el('label','',name), field=el('input');field.type='number';field.step='any';field.min='0';
+        field.id=prop+'-'+ns;field.setAttribute('aria-label','T'+ns+' '+name);field.value=String(info[prop]??'');
+        label.append(field);extra.append(label);
+      }
+      sel.addEventListener('change',()=>{extra.hidden=sel.value!=='chamfer';});f.append(extra);
     }
   }
   function controls(){const conf=stockFor(source);stock=conf.v;cutTools=toolsFor(source);
@@ -2075,7 +2271,18 @@ if (typeof module !== "undefined" && module.exports) module.exports = {buildSoli
   function applyConfig(){
     if(!job)return;
     const next={};for(const k of stockKeys){const input=by('stock-'+k),v=input.valueAsNumber;if(!Number.isFinite(v)||(stockKeys.indexOf(k)<3&&!(v>0))){by('setup-msg').textContent='Enter a finite coordinate and a positive number for each stock dimension.';input.focus();return;}next[k]=v;}
-    const nt={};for(const key of Object.keys(cutTools)){const inp=by('dia-'+key),d=inp.valueAsNumber;if(!Number.isFinite(d)||d<0){by('setup-msg').textContent='Enter a diameter in millimetres or 0 for an unknown cutter.';inp.focus();return;}nt[key]={d,shape:by('shape-'+key).value};}
+    const nt={};
+    for(const key of Object.keys(cutTools)){
+      const inp=by('dia-'+key),d=inp.valueAsNumber,shape=by('shape-'+key).value;
+      if(!Number.isFinite(d)||d<0){by('setup-msg').textContent='Enter a diameter in millimetres or 0 for an unknown cutter.';inp.focus();return;}
+      const def={d,shape};
+      if(shape==='chamfer' && d>0){
+        const a=by('angle-'+key),t=by('tip-'+key);def.angle=a.valueAsNumber;def.tip=t.valueAsNumber;
+        if(!(def.angle>0 && def.angle<180)){by('setup-msg').textContent='Enter a chamfer included angle greater than 0° and below 180°.';a.focus();return;}
+        if(!(def.tip>=0 && def.tip<=d)){by('setup-msg').textContent='Enter a flat tip diameter from 0 to the cutter diameter.';t.focus();return;}
+      }
+      nt[key]=def;
+    }
     const previouslySized=hasSizedTool();
     stock=next;cutTools=nt;path.setStock(stock);path.setTools(nt);
     if(hasSolid)solid.setStock(stock);
@@ -2100,8 +2307,10 @@ if (typeof module !== "undefined" && module.exports) module.exports = {buildSoli
     for(const [n,min,max] of [[0,xmin-radius,xmax+radius],[1,ymin-radius,ymax+radius],[2,-Infinity,zmax]]){
       const v=a[k+n],dv=a[k+n+3]-v;if(Math.abs(dv)<1e-14){if(v<min||v>max)return null;}else{let ta=(min-v)/dv,tb=(max-v)/dv;if(ta>tb)[ta,tb]=[tb,ta];t0=Math.max(t0,ta);t1=Math.min(t1,tb);if(t1<t0-1e-10)return null;}
     }
-    const shape=cutTools[job.tool[i]].shape;
-    const clearance=t=>{const p=point(i,t),x=p[0],y=p[1],dz=Math.max(0,zmax-p[2]);let rho=radius;if(shape==='drill')rho=Math.min(radius,dz*Math.tan(59*Math.PI/180));if(shape==='ball'&&dz<radius)rho=Math.sqrt(Math.max(0,dz*(2*radius-dz)));return Math.hypot(Math.max(xmin-x,0,x-xmax),Math.max(ymin-y,0,y-ymax))-rho;};
+    const cutter=cutTools[job.tool[i]],shape=cutter.shape;
+    const tipRadius=shape==='chamfer'?cutter.tip/2:0;
+    const coneScale=shape==='chamfer'?Math.tan(cutter.angle*Math.PI/360):Math.tan(59*Math.PI/180);
+    const clearance=t=>{const p=point(i,t),x=p[0],y=p[1],dz=Math.max(0,zmax-p[2]);let rho=radius;if(shape==='drill'||shape==='chamfer')rho=Math.min(radius,tipRadius+dz*coneScale);if(shape==='ball'&&dz<radius)rho=Math.sqrt(Math.max(0,dz*(2*radius-dz)));return Math.hypot(Math.max(xmin-x,0,x-xmax),Math.max(ymin-y,0,y-ymax))-rho;};
     if(clearance(t0)<=1e-7)return t0;
     let lo=t0,hi=t1;for(let j=0;j<24;j++){const m=(hi-lo)/3,l=lo+m,r=hi-m;if(clearance(l)<clearance(r))hi=r;else lo=l;}
     let tm=(lo+hi)*.5;if(clearance(t1)<clearance(tm))tm=t1;if(clearance(tm)>1e-6)return null;
@@ -2134,12 +2343,12 @@ if (typeof module !== "undefined" && module.exports) module.exports = {buildSoli
     const rapid=el('span','keyitem');const dot=el('i','dot');dot.style.background='#a7bacd';rapid.append(dot,document.createTextNode('Rapid'));key.append(rapid);
   }
   function openJob(text,name,parsed,isDemo){
-    job=parsed;source=text;starts=indexLines(text);
+    job=parsed;source=text;sourceList.setJob(text,job);
     by('filename').textContent=isDemo?'Arc pocket plate · demo.nc':name;by('filename').title=name;document.title=name+' · Pathscope';by('duration').textContent=clock(job.duration);
     const warnings=by('warnings');warnings.hidden=!job.warnings.length;warnings.open=!!job.warnings.length;
     by('warning-title').textContent='Preview notices ('+job.warnings.length+')';by('warning-items').replaceChildren(...job.warnings.map(w=>el('li','',w)));
     by('job-note').textContent='Estimated time includes programmed feed, dwell and modeled rapids at 1,800 mm/min.';
-    lastLine=0;time=0;cut.setActive(false);
+    time=0;cut.setActive(false);
     if(hasSolid){solid.setActive(false);solid.setJob(job);}
     path.setJob(job);cut.setJob(job);controls();path.setView('iso');
     const canCut=Boolean(entry)&&hasSizedTool();

@@ -11,10 +11,15 @@
       const radius = Number(definition.d) / 2;
       if (!Number.isFinite(radius) || radius <= 0) continue;
       const shape = (definition.shape || "flat").toLowerCase();
-      const angle = Math.max(1, Math.min(179, Number(definition.angle) || 118));
+      const chamfer = shape === "chamfer";
+      const angle = chamfer ? Number(definition.angle) : Math.max(1, Math.min(179, Number(definition.angle) || 118));
+      if (!(angle > 0 && angle < 180)) continue;
       const slope = 1 / Math.tan(angle * Math.PI / 360);
       const ball = shape.includes("ball"), cone = /drill|cone|engrave|chamfer|v-bit/.test(shape);
-      tools[key] = {radius, ball, cone, slope, angle, shape: ball ? "ball" : cone ? "drill" : "flat"};
+      const tipRadius = chamfer ? Number(definition.tip) / 2 : 0;
+      if (!Number.isFinite(tipRadius) || tipRadius < 0 || tipRadius > radius) continue;
+      tools[key] = {radius, tipRadius, ball, cone, slope, angle,
+        shape: ball ? "ball" : chamfer ? "chamfer" : cone ? "drill" : "flat"};
     }
 
     let xmin = Infinity, ymin = Infinity, xmax = -Infinity, ymax = -Infinity;
@@ -91,8 +96,16 @@
               const tmin = Math.max(0, t0 - half), tmax = Math.min(1, t0 + half);
               if (tmin > tmax) continue;
               if (tip.ball) t = clamp(t0 - slopeFactor * half, tmin, tmax);
-              else if (tip.cone && Math.abs(m) < tip.slope)
-                t = clamp(t0 - slopeFactor * Math.sqrt(perp2) / len, tmin, tmax);
+              else if (tip.cone && Math.abs(m) < tip.slope) {
+                let shift = slopeFactor * Math.sqrt(perp2);
+                // If the pointed cone's optimum falls on the tip flat, its
+                // downhill edge gives the deepest contact on a ramp.
+                if (tip.tipRadius && perp2 < tip.tipRadius * tip.tipRadius) {
+                  const edge = Math.sqrt(tip.tipRadius * tip.tipRadius - perp2);
+                  shift = Math.sign(m) * Math.max(Math.abs(shift), edge);
+                }
+                t = clamp(t0 - shift / len, tmin, tmax);
+              }
               else t = dz >= 0 ? tmin : tmax;
             }
             const du = u - dx * t, dv = v - dy * t;
@@ -101,7 +114,7 @@
           }
           if (distance2 > r2 + 1e-9) continue;
           if (tip.ball) baseZ += r - Math.sqrt(Math.max(0, r2 - distance2));
-          else if (tip.cone) baseZ += Math.sqrt(Math.max(0, distance2)) * tip.slope;
+          else if (tip.cone) baseZ += Math.max(0, Math.sqrt(distance2) - tip.tipRadius) * tip.slope;
           // Reserve 65535 for an actual breakthrough. Quantizing a very thin floor must leave it solid.
           const removed = baseZ <= z ? 65535 : Math.min(65534, Math.round((top - baseZ) * factor));
           if (removed > pixels[idx]) {
@@ -187,6 +200,7 @@
         }
         cutter = {x:xyz[p] + f * dx, y:xyz[p + 1] + f * dy, z:xyz[p + 2] + f * dz,
           tool:slot, d:tip ? 2 * tip.radius : 0, shape:tip?.shape || "", angle:tip?.angle || 0, state, move};
+        if (tip?.shape === "chamfer") cutter.tip = 2 * tip.tipRadius;
       }
       let totalUnits = 0;
       for (let j = 0; j < image.length; j++) totalUnits += image[j];

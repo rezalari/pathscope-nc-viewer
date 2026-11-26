@@ -280,7 +280,7 @@
     displayedCutter(frame){
       const c=frame?.cutter;
       if(!this.showCutter||!c||!(c.d>0)||c.state==='complete'||![c.x,c.y,c.z].every(Number.isFinite))return null;
-      const key=JSON.stringify([c.d,c.shape,c.angle]);
+      const key=JSON.stringify([c.d,c.shape,c.angle,c.tip]);
       if(key!==this.toolShapeKey){
         this.toolShape=globalThis.buildCutterMesh?.(c);
         this.toolShapeKey=key;

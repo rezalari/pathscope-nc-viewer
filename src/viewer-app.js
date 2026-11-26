@@ -13,7 +13,9 @@
   const stockKeys=['l','w','h','x','y','z'];
   const flags={rapid:true,future:true,stock:true,grid:true,markers:true,tool:true};
   const flagNames={rapid:'Rapids',future:'Future paths',stock:'Stock',grid:'Grid',markers:'Entry markers',tool:'Cutter'};
-  let job=null, source='', starts=null, ticket=0, playing=false, lastTick=0, time=0, view='solid', seq=[], stageNodes=[], lastLine=0, contact=null, entry=null, stageId=-1, stock={}, cutTools={}, dragCount=0, loadState=false;
+  let job=null, source='', ticket=0, playing=false, lastTick=0, time=0, view='solid', seq=[], stageNodes=[], contact=null, entry=null, stageId=-1, stock={}, cutTools={}, dragCount=0, loadState=false;
+  const sourceList=NCSourceList({viewport:by('linecode'),input:by('source-line'),go:by('source-go'),note:by('source-note'),
+    onSeek:(seconds,line)=>{pause();seek(seconds,line);}});
   function notice(title,msg) { by('msgtitle').textContent=title; by('msgtext').textContent=msg; by('msg').showModal(); }
   function busy(text) { by('busy').hidden=!text; if(text) by('busy').firstElementChild.textContent=text; }
   const path=new NCRenderer(by('path-surface'),{onViewChange:name=>{
@@ -99,15 +101,12 @@
   function startSec(i){return i>0?job.endTime[i-1]:0;}
   function point(i,f){const p=6*i;return [0,1,2].map(k=>job.xyz[p+k]+(job.xyz[p+k+3]-job.xyz[p+k])*f);}
   function toolData(j){const t=j.tool;return j.tools.length?j.tools:(t.length?[t[0]]:[]);}
-  function lineNumber(n){if(!starts||n<1||n>starts.length) return '';const e=n<starts.length?starts[n]-1:source.length;return source.slice(starts[n-1],Math.min(e,starts[n-1]+230)).trimEnd();}
-  function indexLines(s){const positions=new Int32Array((job.lineCount||1)+1);let count=1;for(let i=s.indexOf('\n');i>=0;i=s.indexOf('\n',i+1))positions[count++]=i+1;return positions.subarray(0,count);}
-  function drawSource(n){if(n===lastLine)return;lastLine=n;const pane=by('linecode');pane.replaceChildren();for(let i=Math.max(1,n-1);i<=Math.min(n+1,starts.length);i++){const row=el('div',i===n?'now':'',String(i).padStart(5,' ')+'  '+lineNumber(i));pane.append(row);} }
-  function seek(value) {
+  function seek(value,chosenLine) {
     if(!job?.count){
       time=0;by('progress').value='0';by('progress').setAttribute('aria-valuetext','No motions');
       by('rail').style.setProperty('--done','0%');by('elapsed').textContent='00:00';
       for(const k of ['px','py','pz'])by(k).textContent='–';
-      by('linecode').replaceChildren();by('lineinfo').textContent='';by('motion-data').textContent='';by('view-state').textContent='No motions';
+      sourceList.setPosition(0,chosenLine);by('lineinfo').textContent='';by('motion-data').textContent='';by('view-state').textContent='No motions';
       return;
     }
     time=clamp(value,0,job.duration);const ratio=job.duration?time/job.duration:0,i=inSegment(time),a=startSec(i),b=job.endTime[i],p=point(i,b>a?clamp((time-a)/(b-a),0,1):1);
@@ -116,8 +115,8 @@
     const t=job.tool[i],mode=['Rapid','Feed','Dwell'][job.kind[i]]||'Move';
     by('view-state').textContent=(t?'T'+t:'Tool ?')+' · '+mode;by('tool-dot').style.background=job.kind[i]===0?'#b5c3d2':color(t);
     by('motion-data').textContent=(t?'T'+t:'Unknown tool')+'  ·  '+mode+(job.kind[i]===1?'  '+job.feed[i].toFixed(0)+' mm/min':'')+'  ·  '+(job.spindle[i]?'Spindle on':'Spindle off');
-    by('lineinfo').textContent='Line '+job.line[i].toLocaleString()+' / '+job.lineCount.toLocaleString();
-    drawSource(job.line[i]);
+    by('lineinfo').textContent='Line '+job.line[i].toLocaleString()+' / '+sourceList.count.toLocaleString();
+    sourceList.setPosition(job.line[i],chosenLine);
     const active=nearestStage(seq,time);if(stageId!==active){if(stageId>=0&&stageNodes[stageId])stageNodes[stageId].classList.remove('active');stageNodes[active]?.classList.add('active');stageId=active;}
     const n=nearestStage(job.stages,time);by('stage-select').value=String(n);
     const h=job.holes.length?nearestStage(job.holes,time):-1;
@@ -157,6 +156,14 @@
       const n = Number(number);
       if(!Object.hasOwn(result,n)) continue;
 
+      if(keyword && /^\s*chamfer\b/i.test(description)){
+        const geometry=/^\s*chamfer\s+A(\d+(?:\.\d*)?|\.\d+)\s+TIP(\d+(?:\.\d*)?|\.\d+)\s*$/i.exec(description);
+        const angle=Number(geometry?.[1]),tip=Number(geometry?.[2]),d=Number(diameter);
+        const valid=(!unit || /^mm$/i.test(unit)) && d>0 && angle>0 && angle<180 && tip>=0 && tip<=d;
+        declarations.push({n,diameter:d,scale:1,shape:'chamfer',angle,tip,invalid:!valid});
+        continue;
+      }
+
       // The solid engine models flat, spherical and conical ends. Names such as
       // "tapered ball" or "bull nose" need an explicit choice in Setup.
       if(/\b(?:taper(?:ed)?|bull[ -]?nose|chamfer|engraver|countersink|counterbore|spot[ -]?drill|cent(?:er|re)[ -]?drill|lollipop|dovetail)\b/i.test(description)) continue;
@@ -172,14 +179,15 @@
       declarations.push({n,diameter:Number(diameter),scale,shape:ball?'ball':drill?'drill':'flat'});
     }
     const ambiguous = new Set();
-    for(const {n,diameter,scale,shape} of declarations){
+    for(const {n,diameter,scale,shape,angle,tip,invalid} of declarations){
       const d = diameter * (scale ?? firstUnits ?? 1);
+      if(invalid){result[n]={d:0,shape};ambiguous.add(n);continue;}
       if(!Number.isFinite(d) || d<=0 || ambiguous.has(n)) continue;
       const prior=result[n];
-      if(prior.d && (Math.abs(d-prior.d)>1e-5 || prior.shape!==shape)){
+      if(prior.d && (Math.abs(d-prior.d)>1e-5 || prior.shape!==shape || prior.angle!==angle || prior.tip!==tip)){
         ambiguous.add(n);
         result[n]={d:0,shape:'flat'};
-      }else result[n]={d,shape};
+      }else result[n]=shape==='chamfer'?{d,shape,angle,tip}:{d,shape};
     }
     return result;
   }
@@ -195,9 +203,16 @@
     const f=by('tool-fields');f.replaceChildren();
     for(const [ns,info] of Object.entries(cutTools)){
       const n=Number(ns),r=el('div','tool-field'),t=el('span','fl');t.append(colors(n),el('b','',n?'T'+n:'T?'));const sel=el('select');sel.id='shape-'+ns;sel.setAttribute('aria-label','T'+n+' cutter shape');
-      for(const v of ['flat','ball','drill'])sel.append(option({flat:'Flat end',ball:'Ball nose',drill:'Twist drill'}[v],v));sel.value=info.shape;
+      for(const [v,label] of Object.entries({flat:'Flat end',ball:'Ball nose',drill:'Twist drill',chamfer:'Chamfer mill'}))sel.append(option(label,v));sel.value=info.shape;
       const num=el('input');num.type='number';num.step='any';num.min='0';num.value=String(info.d);num.id='dia-'+ns;num.setAttribute('aria-label','T'+n+' diameter in millimetres');
       r.append(t,sel,num);f.append(r);
+      const extra=el('div','chamfer-fields');extra.hidden=sel.value!=='chamfer';
+      for(const [prop,name] of [['angle','Included angle (°)'],['tip','Flat tip Ø (mm)']]){
+        const label=el('label','',name), field=el('input');field.type='number';field.step='any';field.min='0';
+        field.id=prop+'-'+ns;field.setAttribute('aria-label','T'+ns+' '+name);field.value=String(info[prop]??'');
+        label.append(field);extra.append(label);
+      }
+      sel.addEventListener('change',()=>{extra.hidden=sel.value!=='chamfer';});f.append(extra);
     }
   }
   function controls(){const conf=stockFor(source);stock=conf.v;cutTools=toolsFor(source);
@@ -213,7 +228,18 @@
   function applyConfig(){
     if(!job)return;
     const next={};for(const k of stockKeys){const input=by('stock-'+k),v=input.valueAsNumber;if(!Number.isFinite(v)||(stockKeys.indexOf(k)<3&&!(v>0))){by('setup-msg').textContent='Enter a finite coordinate and a positive number for each stock dimension.';input.focus();return;}next[k]=v;}
-    const nt={};for(const key of Object.keys(cutTools)){const inp=by('dia-'+key),d=inp.valueAsNumber;if(!Number.isFinite(d)||d<0){by('setup-msg').textContent='Enter a diameter in millimetres or 0 for an unknown cutter.';inp.focus();return;}nt[key]={d,shape:by('shape-'+key).value};}
+    const nt={};
+    for(const key of Object.keys(cutTools)){
+      const inp=by('dia-'+key),d=inp.valueAsNumber,shape=by('shape-'+key).value;
+      if(!Number.isFinite(d)||d<0){by('setup-msg').textContent='Enter a diameter in millimetres or 0 for an unknown cutter.';inp.focus();return;}
+      const def={d,shape};
+      if(shape==='chamfer' && d>0){
+        const a=by('angle-'+key),t=by('tip-'+key);def.angle=a.valueAsNumber;def.tip=t.valueAsNumber;
+        if(!(def.angle>0 && def.angle<180)){by('setup-msg').textContent='Enter a chamfer included angle greater than 0° and below 180°.';a.focus();return;}
+        if(!(def.tip>=0 && def.tip<=d)){by('setup-msg').textContent='Enter a flat tip diameter from 0 to the cutter diameter.';t.focus();return;}
+      }
+      nt[key]=def;
+    }
     const previouslySized=hasSizedTool();
     stock=next;cutTools=nt;path.setStock(stock);path.setTools(nt);
     if(hasSolid)solid.setStock(stock);
@@ -238,8 +264,10 @@
     for(const [n,min,max] of [[0,xmin-radius,xmax+radius],[1,ymin-radius,ymax+radius],[2,-Infinity,zmax]]){
       const v=a[k+n],dv=a[k+n+3]-v;if(Math.abs(dv)<1e-14){if(v<min||v>max)return null;}else{let ta=(min-v)/dv,tb=(max-v)/dv;if(ta>tb)[ta,tb]=[tb,ta];t0=Math.max(t0,ta);t1=Math.min(t1,tb);if(t1<t0-1e-10)return null;}
     }
-    const shape=cutTools[job.tool[i]].shape;
-    const clearance=t=>{const p=point(i,t),x=p[0],y=p[1],dz=Math.max(0,zmax-p[2]);let rho=radius;if(shape==='drill')rho=Math.min(radius,dz*Math.tan(59*Math.PI/180));if(shape==='ball'&&dz<radius)rho=Math.sqrt(Math.max(0,dz*(2*radius-dz)));return Math.hypot(Math.max(xmin-x,0,x-xmax),Math.max(ymin-y,0,y-ymax))-rho;};
+    const cutter=cutTools[job.tool[i]],shape=cutter.shape;
+    const tipRadius=shape==='chamfer'?cutter.tip/2:0;
+    const coneScale=shape==='chamfer'?Math.tan(cutter.angle*Math.PI/360):Math.tan(59*Math.PI/180);
+    const clearance=t=>{const p=point(i,t),x=p[0],y=p[1],dz=Math.max(0,zmax-p[2]);let rho=radius;if(shape==='drill'||shape==='chamfer')rho=Math.min(radius,tipRadius+dz*coneScale);if(shape==='ball'&&dz<radius)rho=Math.sqrt(Math.max(0,dz*(2*radius-dz)));return Math.hypot(Math.max(xmin-x,0,x-xmax),Math.max(ymin-y,0,y-ymax))-rho;};
     if(clearance(t0)<=1e-7)return t0;
     let lo=t0,hi=t1;for(let j=0;j<24;j++){const m=(hi-lo)/3,l=lo+m,r=hi-m;if(clearance(l)<clearance(r))hi=r;else lo=l;}
     let tm=(lo+hi)*.5;if(clearance(t1)<clearance(tm))tm=t1;if(clearance(tm)>1e-6)return null;
@@ -272,12 +300,12 @@
     const rapid=el('span','keyitem');const dot=el('i','dot');dot.style.background='#a7bacd';rapid.append(dot,document.createTextNode('Rapid'));key.append(rapid);
   }
   function openJob(text,name,parsed,isDemo){
-    job=parsed;source=text;starts=indexLines(text);
+    job=parsed;source=text;sourceList.setJob(text,job);
     by('filename').textContent=isDemo?'Arc pocket plate · demo.nc':name;by('filename').title=name;document.title=name+' · Pathscope';by('duration').textContent=clock(job.duration);
     const warnings=by('warnings');warnings.hidden=!job.warnings.length;warnings.open=!!job.warnings.length;
     by('warning-title').textContent='Preview notices ('+job.warnings.length+')';by('warning-items').replaceChildren(...job.warnings.map(w=>el('li','',w)));
     by('job-note').textContent='Estimated time includes programmed feed, dwell and modeled rapids at 1,800 mm/min.';
-    lastLine=0;time=0;cut.setActive(false);
+    time=0;cut.setActive(false);
     if(hasSolid){solid.setActive(false);solid.setJob(job);}
     path.setJob(job);cut.setJob(job);controls();path.setView('iso');
     const canCut=Boolean(entry)&&hasSizedTool();

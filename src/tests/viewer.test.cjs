@@ -24,6 +24,7 @@ function stubAPI(list){return class {constructor(element,callbacks){if(list===cu
 const fixture={document:doc,window:null,URL,Blob,Response,Worker:undefined,TextDecoder,setTimeout,clearTimeout,console,atob,structuredClone,performance,requestAnimationFrame:f=>setTimeout(()=>f(performance.now()),8),Option:class extends Node{constructor(name,value){super('option','',name);this.value=value}},NCRenderer:stubAPI(pathClicks),NCCutMap:stubAPI(cutClicks),addEventListener:()=>{}};
 fixture.NCSolidRenderer=stubAPI(solidClicks);
 fixture.window=fixture;const cx=vm.createContext(fixture); vm.runInContext(parser,cx);
+vm.runInContext(scripts.at(-2),cx);
 const app=html.slice(html.lastIndexOf('<script>')+8,html.lastIndexOf('</script>'));
 vm.runInContext(app,cx);
 const ev=(id,t)=>by(id).events[t]?.({target:by(id)});
@@ -117,6 +118,27 @@ const wait=async pred=>{for(let i=0;i<150;i++){await new Promise(r=>setTimeout(r
  assert.equal(by('dia-3').value,'0','Conflicting diameters require manual setup');
  assert.equal(by('dia-8').value,'0','Unsupported geometry requires manual setup');
  assert.equal(by('configure-tools').hidden,false);
+
+ const chamfer=['(STOCK X0..6 Y0..6 Z-2..0 mm)','G20','(TOOL T8 D2 CHAMFER A90 TIP0.4)',
+   'G21 G90','T8 M6','M3 S9000','G0 X-0.5 Y2 Z1','(approach)','G1 Z-1 F60','G1 Y3','M30','(footer)'];
+ await send('chamfer.nc',chamfer.slice(0,5).join('\r\n')+'\r'+chamfer.slice(5).join('\n'));
+ assert.equal(by('source-line').max,'12');assert.equal(by('shape-8').value,'chamfer');
+ assert.equal(by('dia-8').value,'2');assert.equal(by('angle-8').value,'90');assert.equal(by('tip-8').value,'0.4');
+ assert.match(by('to-contact').title,/-0\.300 mm/,'contact uses flat tip and included angle');
+ by('play').click();by('source-line').value='8';by('source-go').click();
+ assert.equal(by('play-text').textContent,'Play','line selection pauses playback');
+ assert.equal(by('progress').value,'0');assert.match(by('source-note').textContent,/line 9/);
+ by('source-line').value='10';by('source-go').click();
+ assert.match(by('lineinfo').textContent,/Line 10 \/ 12/);assert.equal(by('source-note').textContent,'');
+ assert.ok(Number(by('progress').value)>0 && Number(by('progress').value)<1e6);
+ by('source-line').value='12';by('source-go').click();assert.equal(by('progress').value,'1000000');
+ assert.match(by('source-note').textContent,/End of program/);
+ by('tip-8').value='0.6';by('apply').click();
+ assert.match(by('to-contact').title,/-0\.200 mm/);
+ assert.deepEqual(cutClicks.filter(c=>c[0]==='setTools').at(-1)[1][8],{d:2,shape:'chamfer',angle:90,tip:.6});
+ by('tip-8').value='2.1';by('apply').click();assert.match(by('setup-msg').textContent,/flat tip diameter/);
+ await send('incomplete.nc',chamfer.join('\n').replace('CHAMFER A90 TIP0.4','CHAMFER A90'));
+ assert.equal(by('dia-8').value,'0');assert.equal(by('shape-8').value,'chamfer');
  await send('unsupported.nc','G65 P1234\nM30');
  assert(by('msg').open);assert(!by('warnings').hidden);assert.equal(by('progress').value,'0');
  console.log('Viewer smoke tests passed for sample, timeline, fallback, unsupported file and user-defined cutters.');

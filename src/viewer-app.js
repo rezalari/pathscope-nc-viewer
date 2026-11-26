@@ -24,9 +24,38 @@
   catch (error) { console.warn('Solid preview unavailable',error); }
   const hasSolid=Boolean(solid && solid.available!==false);
   const cut=new NCCutMap(by('depth-surface'),{
-    onFrame:frame=>{if(hasSolid)solid.setFrame(frame);},
+    onFrame:frame=>{
+      if(hasSolid)solid.setFrame(frame);
+      updateMaterialReadout(frame);
+    },
     onStatus:message=>{if(hasSolid)solid.setStatus(message);}
   });
+  const engagementLabels={
+    cutting:'Cutting material',air:'Feeding in air',rapid:'Rapid travel',dwell:'Dwell',
+    'spindle-off':'Spindle off',unknown:'Tool size unknown',ready:'Ready',complete:'Finished'
+  };
+  function updateMaterialReadout(frame){
+    const state=frame?.cutter?.state;
+    const tool=frame?.cutter?.tool;
+    const engagement=by('solid-engagement');
+    engagement.dataset.state=state||'';
+    engagement.textContent=(tool?'T'+tool+' · ':'')+(engagementLabels[state]||'');
+    const volume=frame?.removal?.totalMM3;
+    const air=frame?.removal?.airFeedSeconds;
+    by('solid-removed-volume').textContent=Number.isFinite(volume)?volume.toLocaleString(undefined,{maximumFractionDigits:1})+' mm³':'—';
+    by('solid-air-time').textContent=Number.isFinite(air)?clock(air):'—';
+  }
+  const showRemoved=by('show-removed'), showCutter=by('show-cutter');
+  function updateLayers(){
+    if(!hasSolid)return;
+    solid.setCutterVisible(showCutter.checked);
+    solid.setRemovedVisible(showRemoved.checked);
+    cut.setRemovedVisible(showRemoved.checked);
+  }
+  showRemoved.checked=showCutter.checked=true;
+  on('show-removed','change',updateLayers);
+  on('show-cutter','change',updateLayers);
+  updateLayers();
   function updateViewTime(){
     if(view==='solid')solid.setTime(time);
     if(view==='path')path.setTime(time);
@@ -48,6 +77,7 @@
     }
     view=name==='solid'&&!hasSolid?'depth':name;
     by('solid-surface').hidden=view!=='solid';
+    by('solid-inspect').hidden=view!=='solid';
     by('depth-surface').hidden=view!=='depth';
     by('path-surface').hidden=view!=='path';
     by('view-tag').hidden=view!=='path';

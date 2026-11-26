@@ -7,6 +7,7 @@ const slots = {
   NC_RENDERER: 'render.js',
   NC_STOCK: 'viewer-stock.js',
   SOLID_MESH: 'solid-mesh.js',
+  SOLID_CUTTER: 'solid-cutter.js',
   SOLID_RENDER: 'solid-render.js',
   VIEWER_APP: 'viewer-app.js'
 };

@@ -20,17 +20,18 @@
     const attr=version2?'in':'attribute', vo=version2?'out':'varying', fi=version2?'in':'varying';
     const vert=prefix+'precision highp float;\n'+attr+' vec3 aPosition; '+attr+' vec3 aNormal;\n'+
       vo+' vec3 world; '+vo+' vec3 normal;\n'+
-      'uniform vec3 center, rowX, rowY, rowZ; uniform vec2 pan;\n'+
-      'void main(){world=aPosition;normal=aNormal;vec3 v=aPosition-center;gl_Position=vec4(dot(v,rowX)+pan.x,dot(v,rowY)+pan.y,dot(v,rowZ),1.0);}';
+      'uniform vec3 center, rowX, rowY, rowZ, origin; uniform vec2 pan;\n'+
+      'void main(){world=aPosition+origin;normal=aNormal;vec3 v=world-center;gl_Position=vec4(dot(v,rowX)+pan.x,dot(v,rowY)+pan.y,dot(v,rowZ),1.0);}';
     const sample=version2?'texture':'texture2D';
     const frag=prefix+'precision highp float;\n'+fi+' vec3 world; '+fi+' vec3 normal;\n'+
       (version2?'out vec4 outColor;\n':'')+
-      'uniform vec3 eye, light1, light2; uniform vec4 crop, stockRect; uniform vec2 bottomHeight; uniform float relief; uniform sampler2D field;\n'+
+      'uniform vec3 eye, light1, light2, cutterTint; uniform vec4 crop, stockRect; uniform vec2 bottomHeight; uniform float relief, material; uniform sampler2D field;\n'+
       'float heightAt(vec2 xy){ if(any(lessThan(xy,stockRect.xy))||any(greaterThan(xy,stockRect.zw)))return bottomHeight.x;'+
       'vec2 uv=(xy-crop.xy)/crop.zw; if(any(lessThan(uv,vec2(0.)))||any(greaterThan(uv,vec2(1.))))return bottomHeight.x+bottomHeight.y;'+
       'return bottomHeight.x+bottomHeight.y*(1.-'+sample+'(field,uv).r);}\n'+
       'float blocker(vec2 shift,float reach){return clamp((heightAt(world.xy+shift)-world.z)/reach,0.,1.);}\n'+
-      'void main(){vec3 n=normalize(normal);float high=clamp((world.z-bottomHeight.x)/bottomHeight.y,0.,1.);'+
+      'void main(){vec3 n=normalize(normal);if(material>1.5){'+(version2?'outColor':'gl_FragColor')+'=vec4(.36,.82,.98,.11);return;}'+
+      'if(material>.5){float k=.54+.44*max(dot(n,light1),0.)+.15*max(dot(n,light2),0.);'+(version2?'outColor':'gl_FragColor')+'=vec4(k*cutterTint,1.);return;}float high=clamp((world.z-bottomHeight.x)/bottomHeight.y,0.,1.);'+
       'float reach=clamp(bottomHeight.y*.13,.20,1.10);vec2 a=vec2(reach,0.),b=a.yx;'+
       'float ao=relief*(blocker(a,reach)+blocker(-a,reach)+blocker(b,reach)+blocker(-b,reach))*.25;'+
       'float key=max(dot(n,light1),0.),soft=max(dot(n,light2),0.);'+
@@ -52,30 +53,40 @@
   }
 
   function gpu(canvas) {
-    const options={alpha:true,depth:true,antialias:true,premultipliedAlpha:false};
+    const options={alpha:true,depth:true,antialias:true,premultipliedAlpha:true};
     let gl=canvas.getContext('webgl2',options);
     const version2=!!gl;
     if(!gl)gl=canvas.getContext('webgl',options);
     if(!gl||(!version2&&!gl.getExtension('OES_element_index_uint')))return null;
-    const pg=supportedProgram(gl,version2), buffers=[gl.createBuffer(),gl.createBuffer(),gl.createBuffer()];
+    const pg=supportedProgram(gl,version2);
+    const buffers=[gl.createBuffer(),gl.createBuffer(),gl.createBuffer()];
+    const toolBuffers=[gl.createBuffer(),gl.createBuffer(),gl.createBuffer()];
+    const ghostBuffers=[gl.createBuffer(),gl.createBuffer(),gl.createBuffer()];
     const tex=gl.createTexture(), A=['aPosition','aNormal'].map(n=>gl.getAttribLocation(pg,n)), u={};
-    for (const name of ['center','rowX','rowY','rowZ','pan','eye','light1','light2','crop','stockRect','bottomHeight','relief','field'])
+    for (const name of ['center','rowX','rowY','rowZ','pan','eye','light1','light2','crop','stockRect','bottomHeight','relief','field','material','origin','cutterTint'])
       u[name]=gl.getUniformLocation(pg,name);
     gl.useProgram(pg);gl.clearColor(0,0,0,0);gl.enable(gl.DEPTH_TEST);gl.depthFunc(gl.LEQUAL);
     gl.bindTexture(gl.TEXTURE_2D,tex);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);gl.pixelStorei(gl.UNPACK_ALIGNMENT,1);
-    let uploaded, tint=new Uint8Array(1);
-    function draw(frame,cam,stock) {
+    let uploaded, uploadedMesh, uploadedCutter, uploadedGhost, tint=new Uint8Array(1);
+    function upload(mesh, target) {
+      for(const [i,arr] of [mesh.positions,mesh.normals].entries()){
+        gl.bindBuffer(gl.ARRAY_BUFFER,target[i]);gl.bufferData(gl.ARRAY_BUFFER,arr,gl.DYNAMIC_DRAW);
+      }
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,target[2]);gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,mesh.indices,gl.DYNAMIC_DRAW);
+    }
+    function use(target) {
+      for(let i=0;i<2;i++){gl.bindBuffer(gl.ARRAY_BUFFER,target[i]);gl.enableVertexAttribArray(A[i]);gl.vertexAttribPointer(A[i],3,gl.FLOAT,false,0,0);}
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,target[2]);
+    }
+    function draw(frame,cam,stock,showRemoved,cutter) {
       gl.viewport(0,0,canvas.width,canvas.height);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
       if(!frame?.mesh)return;
       const {mesh,meta,depths}=frame;
       gl.useProgram(pg);
+      if(uploadedMesh!==mesh) {upload(mesh,buffers);uploadedMesh=mesh;}
       if(uploaded!==frame) {
-        for(const [i,arr] of [mesh.positions,mesh.normals].entries()){
-          gl.bindBuffer(gl.ARRAY_BUFFER,buffers[i]);gl.bufferData(gl.ARRAY_BUFFER,arr,gl.DYNAMIC_DRAW);
-        }
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,buffers[2]);gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,mesh.indices,gl.DYNAMIC_DRAW);
         const has=!!(meta&&depths&&depths.length===meta.nx*meta.ny);
         if(has){if(tint.length!==depths.length)tint=new Uint8Array(depths.length);
           for(let i=0;i<tint.length;i++)tint[i]=Math.round(depths[i]/257);}
@@ -86,8 +97,7 @@
         gl.uniform4f(u.crop,has?meta.xmin:stock.x,has?meta.ymin:stock.y,has?meta.xmax-meta.xmin:stock.l,has?meta.ymax-meta.ymin:stock.w);
         uploaded=frame;
       }
-      for(let i=0;i<2;i++){gl.bindBuffer(gl.ARRAY_BUFFER,buffers[i]);gl.enableVertexAttribArray(A[i]);gl.vertexAttribPointer(A[i],3,gl.FLOAT,false,0,0);}
-      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,buffers[2]);
+      use(buffers);gl.uniform1f(u.material,0);gl.uniform3f(u.origin,0,0,0);
       const {right,up,eye}=cam;
       gl.uniform3fv(u.center,cam.center);gl.uniform3fv(u.rowX,right.map(v=>v*2*cam.scale/cam.w));
       gl.uniform3fv(u.rowY,up.map(v=>v*2*cam.scale/cam.h));gl.uniform3fv(u.rowZ,eye.map(v=>-v/cam.range));
@@ -95,67 +105,115 @@
       gl.uniform3fv(u.eye,eye);gl.uniform3fv(u.light1,lamp);gl.uniform3fv(u.light2,fill);
       gl.uniform4f(u.stockRect,stock.x,stock.y,stock.x+stock.l,stock.y+stock.w);gl.uniform2f(u.bottomHeight,stock.z,stock.h);
       gl.drawElements(gl.TRIANGLES,mesh.indices.length,gl.UNSIGNED_INT,0);
+      if(cutter?.mesh.indices.length){
+        if(uploadedCutter!==cutter.mesh){upload(cutter.mesh,toolBuffers);uploadedCutter=cutter.mesh;}
+        use(toolBuffers);gl.uniform1f(u.material,1);gl.uniform3fv(u.origin,cutter.origin);
+        gl.uniform3fv(u.cutterTint,cutter.tint);
+        gl.drawElements(gl.TRIANGLES,cutter.mesh.indices.length,gl.UNSIGNED_INT,0);
+        gl.uniform3f(u.origin,0,0,0);
+      }
+      const ghost=showRemoved ? frame.removedMesh : null;
+      if(ghost?.indices.length){
+        if(uploadedGhost!==ghost){upload(ghost,ghostBuffers);uploadedGhost=ghost;}
+        use(ghostBuffers);gl.uniform1f(u.material,2);
+        // Every ghost boundary uses the same tint. Source-over compositing of
+        // that tint is commutative. Keep the opaque depth buffer read-only so
+        // visible back walls and nested pockets accumulate without sorting.
+        gl.enable(gl.BLEND);gl.depthMask(false);gl.blendFuncSeparate(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA,gl.ONE,gl.ONE_MINUS_SRC_ALPHA);
+        gl.drawElements(gl.TRIANGLES,ghost.indices.length,gl.UNSIGNED_INT,0);
+        gl.depthMask(true);gl.disable(gl.BLEND);gl.uniform1f(u.material,0);
+      }
     }
-    return {draw,release:()=>{uploaded=undefined;},destroy:()=>{buffers.forEach(b=>gl.deleteBuffer(b));gl.deleteTexture(tex);gl.deleteProgram(pg);}};
+    return {draw,release:()=>{uploaded=uploadedMesh=uploadedGhost=uploadedCutter=undefined;},destroy:()=>{[...buffers,...ghostBuffers,...toolBuffers].forEach(b=>gl.deleteBuffer(b));gl.deleteTexture(tex);gl.deleteProgram(pg);}};
   }
 
   /* Painter sorting incorrectly fills through-holes in a tilted bar. The software fallback
      rasterizes front-facing triangles with per-pixel depth, including the exposed underside. */
-  function rasterize(frame, cam, stock, image, zbuffer, reusable={}) {
+  function rasterize(frame, cam, stock, image, zbuffer, reusable={}, showRemoved=false, cutter=null) {
     const {width:w,height:h,data:rgba}=image;
     const pixels=new Uint32Array(rgba.buffer,rgba.byteOffset,rgba.length/4);
     pixels.fill(0);zbuffer.fill(-Infinity);
     if(!frame?.mesh)return;
-    const {positions:p,normals:n,indices}=frame.mesh;
-    if(!indices.length)return;
-    if(!reusable.s||reusable.s.length!==p.length){reusable.s=new Float32Array(p.length);reusable.light=new Float32Array(p.length);}
-    const sv=reusable.s,colors=reusable.light, H1=unit(lamp.map((v,i)=>v+cam.eye[i])),H2=unit(fill.map((v,i)=>v+cam.eye[i]));
-    const sx=cam.scale*w/cam.w, sy=cam.scale*h/cam.h, ox=(.5+cam.pan[0]/cam.w)*w,oy=(.5+cam.pan[1]/cam.h)*h;
-    const {right,up,eye,center}=cam;
-    const {meta,depths}=frame, reach=clamp(stock.h*.13,.2,1.1);
-    function sampledZ(x,y){
-      if(x<stock.x||x>stock.x+stock.l||y<stock.y||y>stock.y+stock.w)return stock.z;
-      if(x<meta.xmin||y<meta.ymin||x>=meta.xmax||y>=meta.ymax)return stock.z+stock.h;
-      const ix=Math.min(meta.nx-1,Math.floor((x-meta.xmin)/meta.sx)),iy=Math.min(meta.ny-1,Math.floor((y-meta.ymin)/meta.sy));
-      return stock.z+(1-depths[iy*meta.nx+ix]/65535)*stock.h;
-    }
-    for(let k=0;k<p.length;k+=3) {
-      const x=p[k]-center[0],y=p[k+1]-center[1],z=p[k+2]-center[2];
-      sv[k]=ox+(x*right[0]+y*right[1])*sx;sv[k+1]=oy-(x*up[0]+y*up[1]+z*up[2])*sy;
-      sv[k+2]=x*eye[0]+y*eye[1]+z*eye[2];
-      const a=n[k],b=n[k+1],c=n[k+2];
-      const key=Math.max(0,a*lamp[0]+b*lamp[1]+c*lamp[2]),soft=Math.max(0,a*fill[0]+b*fill[1]+c*fill[2]);
-      let ao=0;
-      if(depths&&meta&&p[k+2]<stock.z+stock.h-.002){
-        const u=p[k],v=p[k+1],e=p[k+2];
-        ao=(clamp((sampledZ(u+reach,v)-e)/reach,0,1)+clamp((sampledZ(u-reach,v)-e)/reach,0,1)+
-          clamp((sampledZ(u,v+reach)-e)/reach,0,1)+clamp((sampledZ(u,v-reach)-e)/reach,0,1))*.25;
+    paint(frame.mesh,'stock',reusable);
+    if(cutter)paint(cutter.mesh,'cutter',reusable.cutter??={});
+    if(showRemoved&&frame.removedMesh)paint(frame.removedMesh,'ghost',reusable.ghost??={});
+
+    function paint(mesh,material,cache) {
+      const ghost=material==='ghost', tool=material==='cutter', origin=tool?cutter.origin:[0,0,0];
+      const {positions:p,normals:n,indices}=mesh;
+      if(!indices.length)return;
+      if(!cache.s||cache.s.length!==p.length){cache.s=new Float32Array(p.length);cache.light=ghost?null:new Float32Array(p.length);}
+      const sv=cache.s,colors=cache.light, H1=unit(lamp.map((v,i)=>v+cam.eye[i])),H2=unit(fill.map((v,i)=>v+cam.eye[i]));
+      const sx=cam.scale*w/cam.w, sy=cam.scale*h/cam.h, ox=(.5+cam.pan[0]/cam.w)*w,oy=(.5+cam.pan[1]/cam.h)*h;
+      const {right,up,eye,center}=cam;
+      const {meta,depths}=frame, reach=clamp(stock.h*.13,.2,1.1);
+      function sampledZ(x,y){
+        if(x<stock.x||x>stock.x+stock.l||y<stock.y||y>stock.y+stock.w)return stock.z;
+        if(x<meta.xmin||y<meta.ymin||x>=meta.xmax||y>=meta.ymax)return stock.z+stock.h;
+        const ix=Math.min(meta.nx-1,Math.floor((x-meta.xmin)/meta.sx)),iy=Math.min(meta.ny-1,Math.floor((y-meta.ymin)/meta.sy));
+        return stock.z+(1-depths[iy*meta.nx+ix]/65535)*stock.h;
       }
-      const gloss=Math.pow(Math.max(0,a*H1[0]+b*H1[1]+c*H1[2]),32)*.24+Math.pow(Math.max(0,a*H2[0]+b*H2[1]+c*H2[2]),63)*.10;
-      const bright=(.43+.51*key+.17*soft+.045*Math.max(c,0))*(.88+.12*clamp((p[k+2]-stock.z)/stock.h,0,1))*(1-.34*ao);
-      colors[k]=255*clamp(.86*bright+.98*gloss,0,1);colors[k+1]=255*clamp(.535*bright+.79*gloss,0,1);colors[k+2]=255*clamp(.355*bright+.60*gloss,0,1);
-    }
-    for(let j=0;j<indices.length;j+=3){
-      const a=3*indices[j],b=3*indices[j+1],c=3*indices[j+2];
-      const ax=sv[a],ay=sv[a+1],bx=sv[b],by=sv[b+1],cx=sv[c],cy=sv[c+1];
-      const dx1=bx-ax,dy1=by-ay,dx2=cx-ax,dy2=cy-ay,area=dx1*dy2-dy1*dx2;
-      if(area>=-1e-9)continue;
-      const x0=Math.max(0,Math.ceil(Math.min(ax,bx,cx)-.5)),x1=Math.min(w-1,Math.floor(Math.max(ax,bx,cx)-.5));
-      const y0=Math.max(0,Math.ceil(Math.min(ay,by,cy)-.5)),y1=Math.min(h-1,Math.floor(Math.max(ay,by,cy)-.5));
-      if(x1<x0||y1<y0)continue;
-      const inv=1/area, uStep=dy2*inv, vStep=-dy1*inv;
-      const dz1=sv[b+2]-sv[a+2],dz2=sv[c+2]-sv[a+2];
-      const r0=colors[a],g0=colors[a+1],blue0=colors[a+2];
-      const dr1=colors[b]-r0,dr2=colors[c]-r0,dg1=colors[b+1]-g0,dg2=colors[c+1]-g0,db1=colors[b+2]-blue0,db2=colors[c+2]-blue0;
-      for(let iy=y0;iy<=y1;iy++){
-        const dy=iy+.5-ay,xstart=x0+.5-ax;
-        let u=(xstart*dy2-dy*dx2)*inv,v=(dy*dx1-xstart*dy1)*inv,at=iy*w+x0;
-        for(let ix=x0;ix<=x1;ix++,at++,u+=uStep,v+=vStep){
-          if(u<-1e-6||v<-1e-6||u+v>1.000001)continue;
-          const depth=sv[a+2]+u*dz1+v*dz2;if(depth<zbuffer[at])continue;
-          zbuffer[at]=depth;
-          const red=(r0+u*dr1+v*dr2+.5)|0,green=(g0+u*dg1+v*dg2+.5)|0,blue=(blue0+u*db1+v*db2+.5)|0;
-          pixels[at]=(255<<24)|(blue<<16)|(green<<8)|red;
+      for(let k=0;k<p.length;k+=3) {
+        const x=p[k]-center[0]+origin[0],y=p[k+1]-center[1]+origin[1],z=p[k+2]-center[2]+origin[2];
+        sv[k]=ox+(x*right[0]+y*right[1])*sx;sv[k+1]=oy-(x*up[0]+y*up[1]+z*up[2])*sy;
+        sv[k+2]=x*eye[0]+y*eye[1]+z*eye[2];
+        if(ghost)continue;
+        const a=n[k],b=n[k+1],c=n[k+2];
+        const key=Math.max(0,a*lamp[0]+b*lamp[1]+c*lamp[2]),soft=Math.max(0,a*fill[0]+b*fill[1]+c*fill[2]);
+        if(tool){
+          const bright=.54+.44*key+.15*soft;
+          for(let ch=0;ch<3;ch++)colors[k+ch]=255*clamp(bright*cutter.tint[ch],0,1);
+          continue;
+        }
+        let ao=0;
+        if(depths&&meta&&p[k+2]<stock.z+stock.h-.002){
+          const u=p[k],v=p[k+1],e=p[k+2];
+          ao=(clamp((sampledZ(u+reach,v)-e)/reach,0,1)+clamp((sampledZ(u-reach,v)-e)/reach,0,1)+
+            clamp((sampledZ(u,v+reach)-e)/reach,0,1)+clamp((sampledZ(u,v-reach)-e)/reach,0,1))*.25;
+        }
+        const gloss=Math.pow(Math.max(0,a*H1[0]+b*H1[1]+c*H1[2]),32)*.24+Math.pow(Math.max(0,a*H2[0]+b*H2[1]+c*H2[2]),63)*.10;
+        const bright=(.43+.51*key+.17*soft+.045*Math.max(c,0))*(.88+.12*clamp((p[k+2]-stock.z)/stock.h,0,1))*(1-.34*ao);
+        colors[k]=255*clamp(.86*bright+.98*gloss,0,1);colors[k+1]=255*clamp(.535*bright+.79*gloss,0,1);colors[k+2]=255*clamp(.355*bright+.60*gloss,0,1);
+      }
+      for(let j=0;j<indices.length;j+=3){
+        const a=3*indices[j],b=3*indices[j+1],c=3*indices[j+2];
+        const ax=sv[a],ay=sv[a+1],bx=sv[b],by=sv[b+1],cx=sv[c],cy=sv[c+1];
+        const dx1=bx-ax,dy1=by-ay,dx2=cx-ax,dy2=cy-ay,area=dx1*dy2-dy1*dx2;
+        if(ghost?Math.abs(area)<1e-9:area>=-1e-9)continue;
+        const x0=Math.max(0,Math.ceil(Math.min(ax,bx,cx)-.5)),x1=Math.min(w-1,Math.floor(Math.max(ax,bx,cx)-.5));
+        const y0=Math.max(0,Math.ceil(Math.min(ay,by,cy)-.5)),y1=Math.min(h-1,Math.floor(Math.max(ay,by,cy)-.5));
+        if(x1<x0||y1<y0)continue;
+        const inv=1/area, uStep=dy2*inv, vStep=-dy1*inv;
+        const dz1=sv[b+2]-sv[a+2],dz2=sv[c+2]-sv[a+2];
+        const r0=ghost?0:colors[a],g0=ghost?0:colors[a+1],blue0=ghost?0:colors[a+2];
+        const dr1=ghost?0:colors[b]-r0,dr2=ghost?0:colors[c]-r0,dg1=ghost?0:colors[b+1]-g0,dg2=ghost?0:colors[c+1]-g0,db1=ghost?0:colors[b+2]-blue0,db2=ghost?0:colors[c+2]-blue0;
+        // A pixel exactly on a shared diagonal belongs to just one triangle.
+        // Without this half-open fill convention a transparent mesh shows seams.
+        const winding=area>0?1:-1;
+        const ab=dy1*winding<0||(dy1===0&&dx1*winding>0);
+        const bc=(cy-by)*winding<0||(cy===by&&(cx-bx)*winding>0);
+        const ca=-dy2*winding<0||(dy2===0&&-dx2*winding>0);
+        for(let iy=y0;iy<=y1;iy++){
+          const dy=iy+.5-ay,xstart=x0+.5-ax;
+          let u=(xstart*dy2-dy*dx2)*inv,v=(dy*dx1-xstart*dy1)*inv,at=iy*w+x0;
+          for(let ix=x0;ix<=x1;ix++,at++,u+=uStep,v+=vStep){
+            if(u<-1e-6||v<-1e-6||u+v>1.000001)continue;
+            const depth=sv[a+2]+u*dz1+v*dz2;
+            if(ghost){
+              if(depth<zbuffer[at]||(u<1e-8&&!ca)||(v<1e-8&&!ab)||(1-u-v<1e-8&&!bc))continue;
+              // ImageData stores straight alpha while WebGL blends in premultiplied form.
+              const ptr=at*4,old=rgba[ptr+3]/255,alpha=.11,keep=(1-alpha)*old,out=alpha+keep;
+              rgba[ptr]=(91.8*alpha+rgba[ptr]*keep)/out;
+              rgba[ptr+1]=(209.1*alpha+rgba[ptr+1]*keep)/out;
+              rgba[ptr+2]=(249.9*alpha+rgba[ptr+2]*keep)/out;
+              rgba[ptr+3]=255*out;
+              continue;
+            }
+            if(depth<zbuffer[at])continue;
+            zbuffer[at]=depth;
+            const red=(r0+u*dr1+v*dr2+.5)|0,green=(g0+u*dg1+v*dg2+.5)|0,blue=(blue0+u*db1+v*db2+.5)|0;
+            pixels[at]=(255<<24)|(blue<<16)|(green<<8)|red;
+          }
         }
       }
     }
@@ -164,11 +222,11 @@
   function software(canvas){
     const ctx=canvas.getContext('2d');if(!ctx)return null;
     let image,depth,cache={};
-    return {draw(frame,cam,stock){
+    return {draw(frame,cam,stock,showRemoved,cutter){
       if(!image||image.width!==canvas.width||image.height!==canvas.height){
         image=ctx.createImageData(canvas.width,canvas.height);depth=new Float32Array(canvas.width*canvas.height);
       }
-      rasterize(frame,cam,stock,image,depth,cache);ctx.putImageData(image,0,0);
+      rasterize(frame,cam,stock,image,depth,cache,showRemoved,cutter);ctx.putImageData(image,0,0);
     },release(){cache={};},destroy(){image=depth=null;cache={};}};
   }
 
@@ -176,6 +234,7 @@
     constructor(host,{onStatus}={}){
       this.host=host;this.onStatus=onStatus;
       this.stock={...NEUTRAL};this.frame=null;this.meta=null;this.requested=0;this.active=false;
+      this.showRemoved=false;this.showCutter=true;this.toolShapeKey='';this.toolShape=null;
       this.mode='path';this.focus=null;this.pan=[0,0];this.factor=1;
       this.yaw=-.52;this.elevation=.65;this.fitAxes=basis(this.yaw,this.elevation);this.activeJob=null;this.notice='';
       host.style.background='radial-gradient(ellipse at 45% 30%, #293843 0%, #1c2b35 47%, #111d25 100%)';
@@ -215,6 +274,20 @@
       if(!frame){this.reset();return;}if(!frame.mesh)return;
       this.frame=frame;this.setMeta(frame.meta);
       this.schedule();
+    }
+    setRemovedVisible(yes){if(this.showRemoved!==!!yes){this.showRemoved=!!yes;this.schedule();}}
+    setCutterVisible(yes){if(this.showCutter!==!!yes){this.showCutter=!!yes;this.schedule();}}
+    displayedCutter(frame){
+      const c=frame?.cutter;
+      if(!this.showCutter||!c||!(c.d>0)||c.state==='complete'||![c.x,c.y,c.z].every(Number.isFinite))return null;
+      const key=JSON.stringify([c.d,c.shape,c.angle]);
+      if(key!==this.toolShapeKey){
+        this.toolShape=globalThis.buildCutterMesh?.(c);
+        this.toolShapeKey=key;
+      }
+      if(!this.toolShape)return null;
+      const tint=c.state==='cutting'?[.38,.91,.74]:[.82,.88,.93];
+      return {mesh:this.toolShape,origin:[c.x,c.y,c.z],tint};
     }
     setMeta(meta){this.meta=meta;this.schedule();}
     setStatus(message){const next=String(message||'');if(next===this.notice)return;this.notice=next;this.updateHud();}
@@ -283,8 +356,14 @@
       const d=this.usingCPU?Math.min(dpr,1.1,Math.sqrt(680000/(cam.w*cam.h))):Math.min(dpr,2);
       const w=Math.max(1,Math.round(cam.w*d)),h=Math.max(1,Math.round(cam.h*d));
       if(this.canvas.width!==w||this.canvas.height!==h){this.canvas.width=w;this.canvas.height=h;}
-      const frame=this.requested===0?this.blank:(this.frame||this.blank);
-      this.output?.draw(frame,cam,this.stock);this.drawAxes(cam);this.updateHud();
+      const frame=this.requested===0?(this.frame?.t===0?this.frame:this.blank):(this.frame||this.blank);
+      const cutter=this.displayedCutter(frame);
+      if(cutter){
+        const tip=cutter.origin.map((v,i)=>v-cam.center[i]);
+        const span=cutter.mesh.bounds?.max||[0,0,frame.cutter.d*8];
+        cam.range=Math.max(cam.range,Math.abs(dot(tip,cam.eye))+Math.hypot(...span)+1);
+      }
+      this.output?.draw(frame,cam,this.stock,this.showRemoved,cutter);this.drawAxes(cam);this.updateHud();
     }
     schedule(){if(this.active&&!this.raf)this.raf=requestAnimationFrame(()=>{this.raf=0;this.draw();});}
     bindInput(){
@@ -317,5 +396,5 @@
     destroy(){this.observer.disconnect();if(this.raf)cancelAnimationFrame(this.raf);this.output?.destroy();this.hud.remove();this.axes.remove();this.canvas.remove();}
   }
   globalThis.NCSolidRenderer=NCSolidRenderer;
-  if(typeof module!=='undefined'&&module.exports)module.exports={NCSolidRenderer,rasterize,basis};
+  if(typeof module!=='undefined'&&module.exports)module.exports={NCSolidRenderer,rasterize,basis,gpu};
 })();

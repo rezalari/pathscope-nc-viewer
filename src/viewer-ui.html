@@ -13,12 +13,30 @@
 #path-angle{max-width:76px}
 @media(max-width:780px){.viewtop{flex-wrap:wrap}.corner-tools{margin-left:auto}}
 .brand-sub{display:block;letter-spacing:.045em;font-size:10px;line-height:1.25;color:var(--muted);font-weight:550}.local-note{margin:0 0 14px;color:var(--muted);font-size:11px}#configure-tools{display:block;width:100%;margin-bottom:14px;font-size:12px;border-color:#61835c;color:#cfeabf}
+#solid-inspect{display:flex;align-items:center;justify-content:space-between;gap:6px 18px;flex-wrap:wrap;padding:6px 0;color:var(--muted);font-size:12px}
+#solid-inspect[hidden]{display:none}
+.solid-layers,.solid-metrics{display:flex;align-items:center;flex-wrap:wrap;gap:6px 15px}
+.solid-layers label{display:inline-flex;align-items:center;gap:5px;cursor:pointer;color:var(--text)}
+.solid-layers input{width:14px;height:14px;margin:0;accent-color:#a3e1e6}
+.solid-metrics strong{color:var(--text);font:600 12px var(--mono)}
+#solid-engagement[data-state=cutting]{color:#b9e49c}
+#solid-engagement[data-state=air]{color:#edc07b}
+@media(max-width:730px){#solid-inspect{font-size:11px}.solid-metrics{gap:4px 10px}}
+@media(max-width:450px){.header{gap:5px;padding-inline:8px}.header-actions{gap:3px}.header-actions button{padding-inline:6px}}
 </style></head>
 <body><main class="app"><header class="header"><div class="brand"><svg viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M2 9.5 16 2l14 7.5L16 17 2 9.5Z" stroke="#b9e49c" stroke-width="2"/><path d="m3 16 13 7 13-7M3 22.5 16 30l13-7.5" stroke="#b9e49c" stroke-width="2"/></svg><span>Pathscope<small class="brand-sub">NC Viewer</small></span></div><div class="divider"></div><div class="filename" id="filename" title="Current NC file">NC viewer</div><div class="header-actions"><button id="demo-btn" class="flat">Load demo</button><button id="open-btn" class="primary"><svg viewBox="0 0 24 24"><path d="M3 17V6h7l2 2h8v3M3 18l3-7h15l-3 8H3z"/></svg>Open NC file</button></div><input type="file" id="file" accept=".nc,.cnc,.gcode,.gc,.tap,.ngc,.txt,.ncc,.iso,.gco,*/*" hidden></header>
 <section class="work"><div class="center"><div class="viewport" id="viewport"><div id="solid-surface" class="surface" aria-label="Rotatable 3D remaining stock"></div><div id="path-surface" class="surface" aria-label="Interactive toolpath" hidden></div><div id="depth-surface" class="surface" aria-label="Simulated cut depths" hidden></div>
 <div class="viewtop"><div class="hud" role="group" aria-label="View"><button class="on" data-view="solid" title="Rotate and inspect the remaining stock">Solid</button><button data-view="path" title="See programmed motion and entry points">Toolpaths</button><button data-view="depth" title="See remaining material by cut depth from above">Cut depth</button></div><div class="corner-tools"><select id="path-angle" aria-label="Toolpath viewing angle" hidden><option value="iso">3D orbit</option><option value="top">Top</option><option value="front">Front</option></select><button id="zoom-out" class="ico" aria-label="Zoom out">−</button><button id="zoom-in" class="ico" aria-label="Zoom in">+</button><select id="fit" title="Fit view or stock" aria-label="Fit viewport"><option value="">Fit view</option><option value="path">Fit cut area</option><option value="stock">Fit stock</option></select></div></div>
 <div class="viewportfooter"><span class="tag" id="solid-fallback" hidden>3D rendering is unavailable. Showing the cut-depth map.</span><span class="tag" id="view-tag" hidden><i class="dot" id="tool-dot"></i><span id="view-state">Work coordinates · mm</span></span></div><div id="busy" class="busy" role="status"><span>Opening the example program…</span></div><div class="dragmask">Drop an NC file</div></div>
-<div class="sim"><div class="simrow"><h2>Simulation</h2><span class="time"><span id="elapsed">00:00</span> <small>/ <span id="duration">00:00</span></small></span></div><div class="scrubber"><div id="rail" class="rail"></div><input type="range" id="progress" min="0" max="1000000" step="1" value="0" aria-label="Simulation progress"></div><div class="transports"><button class="ico" id="prev-step" aria-label="Previous motion" title="Previous motion"><svg viewBox="0 0 24 24"><path d="M6 5v14m12-13-9 6 9 6z"/></svg></button><button class="primary" id="play" aria-label="Play simulation"><span id="play-icon">▶</span><span id="play-text">Play</span></button><button class="ico" id="next-step" aria-label="Next motion" title="Next motion"><svg viewBox="0 0 24 24"><path d="M18 5v14M6 6l9 6-9 6z"/></svg></button><select id="speed" aria-label="Playback speed" title="Playback speed"><option value="1">1×</option><option value="10">10×</option><option value="60" selected>60×</option><option value="300">300×</option><option value="1000">1000×</option></select><button id="to-finished" title="Show the solid material left at the end of the program">Finished part</button><span class="lineinfo" id="lineinfo"></span></div></div></div>
+<div class="sim"><div class="simrow"><h2>Simulation</h2><span class="time"><span id="elapsed">00:00</span> <small>/ <span id="duration">00:00</span></small></span></div><div id="solid-inspect" hidden>
+  <div class="solid-layers" role="group" aria-label="Solid layers">
+    <label title="Show removed stock as a translucent volume"><input type="checkbox" id="show-removed" checked>Removed material</label>
+    <label title="Show the active tool at its programmed position"><input type="checkbox" id="show-cutter" checked>Cutter</label>
+  </div>
+  <div class="solid-metrics" title="Estimates at the displayed stock frame. Air feed counts known, spindle-on feed time without sampled material removal.">
+    <span id="solid-engagement"></span><span>Removed <strong id="solid-removed-volume">—</strong></span><span>Est. air feed <strong id="solid-air-time">—</strong></span>
+  </div>
+</div><div class="scrubber"><div id="rail" class="rail"></div><input type="range" id="progress" min="0" max="1000000" step="1" value="0" aria-label="Simulation progress"></div><div class="transports"><button class="ico" id="prev-step" aria-label="Previous motion" title="Previous motion"><svg viewBox="0 0 24 24"><path d="M6 5v14m12-13-9 6 9 6z"/></svg></button><button class="primary" id="play" aria-label="Play simulation"><span id="play-icon">▶</span><span id="play-text">Play</span></button><button class="ico" id="next-step" aria-label="Next motion" title="Next motion"><svg viewBox="0 0 24 24"><path d="M18 5v14M6 6l9 6-9 6z"/></svg></button><select id="speed" aria-label="Playback speed" title="Playback speed"><option value="1">1×</option><option value="10">10×</option><option value="60" selected>60×</option><option value="300">300×</option><option value="1000">1000×</option></select><button id="to-finished" title="Show the solid material left at the end of the program">Finished part</button><span class="lineinfo" id="lineinfo"></span></div></div></div>
 <aside class="side"><nav class="side-nav"><button id="job-tab" class="on">Job</button><button id="setup-tab">Setup</button></nav><div class="sidebody"><p class="local-note">Your NC files stay in your browser.</p>
 <details id="warnings" class="warn" hidden><summary id="warning-title"></summary><ul id="warning-items"></ul></details>
 <div id="job-panel"><button id="configure-tools" hidden>Set cutter sizes for solid preview</button><section class="group"><div class="sectionhead"><h2>Operations</h2><small id="op-count"></small></div><div class="ops" id="operations"></div></section>
@@ -34,5 +52,6 @@
 <script>/*__NC_RENDERER__*/</script>
 <script>/*__NC_STOCK__*/</script>
 <script>/*__SOLID_MESH__*/</script>
+<script>/*__SOLID_CUTTER__*/</script>
 <script>/*__SOLID_RENDER__*/</script>
 <script>/*__VIEWER_APP__*/</script></body></html>

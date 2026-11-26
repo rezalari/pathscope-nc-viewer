@@ -40,6 +40,20 @@ const wait=async pred=>{for(let i=0;i<150;i++){await new Promise(r=>setTimeout(r
  assert(by('configure-tools').hidden);
  assert.equal(by('progress').value,'1000000');
  const solidAvailable=!process.argv.includes('--no-solid');
+ assert.equal(by('solid-inspect').hidden,!solidAvailable);
+ if(solidAvailable){
+   assert(by('show-removed').checked && by('show-cutter').checked);
+   by('show-removed').checked=false;ev('show-removed','change');
+   for(const calls of [solidClicks,cutClicks])assert.deepEqual(calls.filter(c=>c[0]==='setRemovedVisible').at(-1),['setRemovedVisible',false]);
+   by('show-cutter').checked=false;ev('show-cutter','change');
+   assert.deepEqual(solidClicks.filter(c=>c[0]==='setCutterVisible').at(-1),['setCutterVisible',false]);
+   materialCallbacks.onFrame({cutter:{tool:2,state:'air'},removal:{totalMM3:55,airFeedSeconds:90}});
+   assert.equal(by('solid-engagement').textContent,'T2 · Feeding in air');
+   assert.equal(by('solid-removed-volume').textContent,'55 mm³');
+   assert.equal(by('solid-air-time').textContent,'01:30');
+   materialCallbacks.onFrame(null);
+   assert.equal(by('solid-removed-volume').textContent,'—');
+ }
  assert.equal(by(solidAvailable?'solid-surface':'depth-surface').hidden,false);
  by('progress').value='420000';
  ev('progress','input');

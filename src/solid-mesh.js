@@ -1,6 +1,6 @@
 /* A boundary mesh of the material below a three-axis milling height field.
    The function is self-contained so it can be installed in the simulation worker. */
-function buildSolidMesh(stock, meta, depths) {
+function buildSolidMesh(stock, meta, depths, removed) {
   "use strict";
   const {x, y, z, l, w, h} = stock;
   const bounds = {min: [x, y, z], max: [x + l, y + w, z + h]};
@@ -54,6 +54,7 @@ function buildSolidMesh(stock, meta, depths) {
     for (let i = 0; i < depths.length; i++) if (depths[i]) { disturbed = true; break; }
   }
   if (!disturbed) {
+    if (removed) return result();
     plane(x, y, x + l, y + w, top, false); plane(x, y, x + l, y + w, z, true);
     wall(x, y, x + l, y, z, z, top, top, 0, -1);
     wall(x + l, y, x + l, y + w, z, z, top, top, 1, 0);
@@ -117,6 +118,14 @@ function buildSolidMesh(stock, meta, depths) {
     }
   }
 
+  // Use the very same reconstructed interface for both volumes. The ordinary
+  // mesher fills from the stock floor upwards. Invert the quantized field
+  // here and reflect its output in Z to fill downwards from the stock top.
+  if (removed) {
+    for (let i = 0; i < values.length; i++) values[i] = through - values[i];
+    for (let i = 0; i < corners.length; i++) corners[i] = through - corners[i];
+  }
+
   function height(depth) { return top - depth * unit; }
   const flat = new Int32Array(count), bottom = new Int32Array(count);
   flat.fill(-1);
@@ -126,7 +135,10 @@ function buildSolidMesh(stock, meta, depths) {
   }
   for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
     const cell = j * nx + i, k = cell * 4;
-    if (values[cell] === through) { bottom[cell] = -1; continue; }
+    // Along a smooth cut entry, the interpolated surface can slope toward
+    // the first cut cell from a sample that was exactly at stock top.
+    if (values[cell] === through && corners[k] === through && corners[k+1] === through &&
+        corners[k+2] === through && corners[k+3] === through) { bottom[cell] = -1; continue; }
     if (corners[k] === values[cell] && corners[k + 1] === values[cell] &&
         corners[k + 2] === values[cell] && corners[k + 3] === values[cell]) {
       flat[cell] = values[cell]; continue;
@@ -184,6 +196,15 @@ function buildSolidMesh(stock, meta, depths) {
     seam(xx[i + 1], yy[j], xx[i], yy[j], j ? corners[south + 2] : through,
       j ? corners[south + 3] : through, j < ny ? corners[north + 1] : through,
       j < ny ? corners[north] : through, 0, 1);
+  }
+  if (removed) {
+    const mirror = z + top;
+    for (let i = 2; i < 3 * vertexCount; i += 3) {
+      positions[i] = mirror - positions[i]; normals[i] = -normals[i];
+    }
+    for (let i = 0; i < indexCount; i += 3) {
+      const swap = indices[i+1]; indices[i+1] = indices[i+2]; indices[i+2] = swap;
+    }
   }
   return result();
 }

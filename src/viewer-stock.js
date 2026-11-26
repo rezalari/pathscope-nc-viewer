@@ -11,9 +11,10 @@
       const radius = Number(definition.d) / 2;
       if (!Number.isFinite(radius) || radius <= 0) continue;
       const shape = (definition.shape || "flat").toLowerCase();
-      const angle = Number(definition.angle) || 118;
-      const slope = 1 / Math.tan(Math.max(1, Math.min(179, angle)) * Math.PI / 360);
-      tools[key] = {radius, ball: shape.includes("ball"), cone: /drill|cone|engrave|chamfer|v-bit/.test(shape), slope};
+      const angle = Math.max(1, Math.min(179, Number(definition.angle) || 118));
+      const slope = 1 / Math.tan(angle * Math.PI / 360);
+      const ball = shape.includes("ball"), cone = /drill|cone|engrave|chamfer|v-bit/.test(shape);
+      tools[key] = {radius, ball, cone, slope, angle, shape: ball ? "ball" : cone ? "drill" : "flat"};
     }
 
     let xmin = Infinity, ymin = Infinity, xmax = -Infinity, ymax = -Infinity;
@@ -47,28 +48,29 @@
     const blank = () => new Uint16Array(nx * ny);
     const clamp = (t, a, b) => Math.max(a, Math.min(b, t));
 
-    function sweep(pixels, i, fraction = 1) {
-      if (kind[i] !== 1 || !spindle[i] || fraction <= 0) return;
+    function sweep(pixels, i, fraction = 1, from = 0) {
+      if (kind[i] !== 1 || !spindle[i] || fraction <= from) return 0;
       const tip = tools[tool[i]];
-      if (!tip) return;
+      if (!tip) return 0;
       const p = i * 6;
-      const ax = xyz[p], ay = xyz[p + 1], az = xyz[p + 2];
-      const dx = (xyz[p + 3] - ax) * fraction, dy = (xyz[p + 4] - ay) * fraction;
-      const dz = (xyz[p + 5] - az) * fraction;
+      const vx = xyz[p + 3] - xyz[p], vy = xyz[p + 4] - xyz[p + 1], vz = xyz[p + 5] - xyz[p + 2];
+      const ax = xyz[p] + vx * from, ay = xyz[p + 1] + vy * from, az = xyz[p + 2] + vz * from;
+      const span = fraction - from, dx = vx * span, dy = vy * span, dz = vz * span;
       const lowest = Math.min(az, az + dz);
-      if (lowest >= top) return;
+      if (lowest >= top) return 0;
       const r = tip.radius, r2 = r * r;
       const limit = lowest <= z ? 65535 : Math.min(65534, Math.round((top - lowest) * factor));
       const startX = Math.max(0, Math.ceil((Math.min(ax, ax + dx) - r - xmin) / sx - 0.5));
       const endX = Math.min(nx - 1, Math.floor((Math.max(ax, ax + dx) + r - xmin) / sx - 0.5));
       const startY = Math.max(0, Math.ceil((Math.min(ay, ay + dy) - r - ymin) / sy - 0.5));
       const endY = Math.min(ny - 1, Math.floor((Math.max(ay, ay + dy) + r - ymin) / sy - 0.5));
-      if (startX > endX || startY > endY) return;
+      if (startX > endX || startY > endY) return 0;
       const len2 = dx * dx + dy * dy, len = Math.sqrt(len2);
       const m = len > 0 ? dz / len : 0;
       const slopeFactor = tip.ball ? m / Math.sqrt(1 + m * m) :
         tip.cone && Math.abs(m) < tip.slope ? m / Math.sqrt(tip.slope * tip.slope - m * m) : 0;
       const firstU = xmin + (startX + 0.5) * sx - ax;
+      let added = 0;
       for (let j = startY; j <= endY; j++) {
         const v = ymin + (j + 0.5) * sy - ay;
         let idx = j * nx + startX;
@@ -102,9 +104,54 @@
           else if (tip.cone) baseZ += Math.sqrt(Math.max(0, distance2)) * tip.slope;
           // Reserve 65535 for an actual breakthrough. Quantizing a very thin floor must leave it solid.
           const removed = baseZ <= z ? 65535 : Math.min(65534, Math.round((top - baseZ) * factor));
-          if (removed > pixels[idx]) pixels[idx] = removed;
+          if (removed > pixels[idx]) {
+            added += removed - pixels[idx];
+            pixels[idx] = removed;
+          }
         }
       }
+      return added;
+    }
+    // Accumulate estimated air-feed time only for moves for which removal can
+    // be simulated. Fixed intervals along a move keep results repeatable when
+    // seeking; a lone long feed may enter and exit stock or a previously cut slot.
+    function advance(pixels, i, fraction = 1, measurement) {
+      const tip = tools[tool[i]];
+      if (kind[i] !== 1 || !spindle[i] || !tip || fraction <= 0) return 0;
+      const dt = endTime[i] - (i ? endTime[i-1] : 0), p = i * 6;
+      const ax = xyz[p], ay = xyz[p+1], az = xyz[p+2];
+      const dx = xyz[p+3]-ax, dy = xyz[p+4]-ay, dz = xyz[p+5]-az;
+      const r = tip.radius;
+      if (Math.min(az, az+dz) >= top || Math.max(ax, ax+dx)+r <= x ||
+          Math.min(ax, ax+dx)-r >= x+l || Math.max(ay, ay+dy)+r <= y ||
+          Math.min(ay, ay+dy)-r >= y+w) return dt * fraction;
+      const travel = Math.hypot(dx, dy, dz), resolution = Math.max(sx, sy);
+      const interval = Math.max(2 * resolution, r / 2);
+      const steps = Math.max(1, Math.min(256, Math.ceil(travel / interval)));
+      const sampleStart = measurement && travel ? Math.max(0, fraction - 2 * resolution / travel) : 0;
+      let air = 0, start = 0;
+      for (let j = 1; j <= Math.ceil(steps * fraction); j++) {
+        const end = Math.min(fraction, j / steps);
+        let units;
+        if (measurement && start < sampleStart && sampleStart < end) {
+          const before = sweep(pixels, i, sampleStart, start);
+          const recent = sweep(pixels, i, end, sampleStart);
+          units = before + recent;
+          measurement.recent += recent;
+        } else {
+          units = sweep(pixels, i, end, start);
+          if (measurement && start >= sampleStart) measurement.recent += units;
+        }
+        if (measurement) measurement.move += units;
+        if (!units) {
+          // Classify an incomplete interval the same way as the completed one
+          // so the cumulative clock cannot run backward at first contact.
+          const wholeEnd = j / steps;
+          if (end >= wholeEnd || !sweep(pixels.slice(), i, wholeEnd, end)) air += end - start;
+        }
+        start = end;
+      }
+      return air * dt;
     }
     function cursorAt(seconds) {
       let lo = 0, hi = count;
@@ -116,12 +163,44 @@
       const dt = lo < count ? endTime[lo] - t0 : 0;
       return {i: lo, fraction: dt > 0 ? clamp((seconds - t0) / dt, 0, 1) : 0};
     }
-    return {blank, sweep, meta, cursorAt};
+    // The caller supplies stock at the beginning of the segment. Sampling a
+    // short trailing interval distinguishes cutting now from cutting earlier
+    // in a long move that has since left the work or entered a cleared pocket.
+    function inspectFrame(image, i, fraction, priorAirSeconds = 0) {
+      const ended = i === count, move = ended ? count - 1 : i;
+      const units = {move:0,recent:0};
+      let cutter = null, airFeedSeconds = priorAirSeconds;
+      if (move >= 0) {
+        const p = 6 * move, f = ended ? 1 : fraction;
+        const dx = xyz[p + 3] - xyz[p], dy = xyz[p + 4] - xyz[p + 1], dz = xyz[p + 5] - xyz[p + 2];
+        const slot = tool[move], tip = tools[slot];
+        let state;
+        if (ended) state = "complete";
+        else if (kind[move] === 0) state = "rapid";
+        else if (kind[move] === 2) state = "dwell";
+        else if (!spindle[move]) state = "spindle-off";
+        else if (!tip) state = "unknown";
+        else if (!fraction) state = "ready";
+        else {
+          airFeedSeconds += advance(image, i, fraction, units);
+          state = units.recent > 0 ? "cutting" : "air";
+        }
+        cutter = {x:xyz[p] + f * dx, y:xyz[p + 1] + f * dy, z:xyz[p + 2] + f * dz,
+          tool:slot, d:tip ? 2 * tip.radius : 0, shape:tip?.shape || "", angle:tip?.angle || 0, state, move};
+      }
+      let totalUnits = 0;
+      for (let j = 0; j < image.length; j++) totalUnits += image[j];
+      const unitVolume = sx * sy * h / 65535;
+      return {cutter, removal:{totalMM3:totalUnits * unitVolume, moveMM3:units.move * unitVolume,
+        recentMM3:units.recent * unitVolume, airFeedSeconds}};
+    }
+    return {blank, sweep, advance, meta, cursorAt, inspectFrame};
   }
 
   function stockWorker(buildEngine, buildMesh) {
     let job, engine, stock, pixels, checkpoints, stride, built, mode, timer, request;
-    let lastSolidDepths, meshError;
+    let airSeconds, checkpointAir;
+    let lastSolidDepths, meshError, removedError, removedVisible = false, hasRemovedMesh = false;
     let key = 0, lastProgress = 0;
 
     function report() { self.postMessage({key, type:"progress", progress: job.count ? built / job.count : 1}); }
@@ -131,12 +210,13 @@
       if (built < i) return;
       const checkpoint = Math.floor(i / stride);
       const image = built === i ? pixels.slice() : checkpoints[checkpoint].slice();
+      let frameAir = built === i ? airSeconds : checkpointAir[checkpoint];
       if (built !== i) {
-        for (let j = checkpoint * stride; j < i; j++) engine.sweep(image, j);
+        for (let j = checkpoint * stride; j < i; j++) frameAir += engine.advance(image, j);
       }
-      if (i < job.count && fraction) engine.sweep(image, i, fraction);
-      const frame = {key, type:"image", mode, t:request.t, image};
+      const frame = {key, type:"image", mode, t:request.t, image, ...engine.inspectFrame(image, i, fraction, frameAir)};
       const buffers = [image.buffer];
+      function transferMesh(mesh) { buffers.push(mesh.positions.buffer, mesh.normals.buffer, mesh.indices.buffer); }
       if (mode === "solid") {
         // A motion above the surface can change the requested time without changing the mesh.
         // The main thread keeps the most recent mesh for this configuration during view switches.
@@ -144,16 +224,28 @@
         if (!changed) {
           for (let j = 0; j < image.length && !changed; j++) changed = image[j] !== lastSolidDepths[j];
         }
+        if (changed) hasRemovedMesh = false;
         if (changed && !meshError) {
           try {
             frame.mesh = buildMesh(stock, engine.meta, image);
-            buffers.push(frame.mesh.positions.buffer, frame.mesh.normals.buffer, frame.mesh.indices.buffer);
+            transferMesh(frame.mesh);
             lastSolidDepths = image.slice();
           } catch (err) {
             meshError = "Could not build the stock surface: " + (err.message || err);
           }
         }
         if (meshError) frame.error = meshError;
+        frame.removedVisible = removedVisible;
+        if (removedVisible && !hasRemovedMesh && !meshError && !removedError) {
+          try {
+            frame.removedMesh = buildMesh(stock, engine.meta, image, true);
+            transferMesh(frame.removedMesh);
+            hasRemovedMesh = true;
+          } catch (err) {
+            removedError = "Could not build the removed volume: " + (err.message || err);
+          }
+        }
+        if (removedError && removedVisible) frame.removedError = removedError;
       }
       self.postMessage(frame, Array.from(new Set(buffers)));
       request = null;
@@ -166,8 +258,8 @@
       while (built < job.count && performance.now() < deadline) {
         const stop = Math.min(built + 64, job.count);
         for (; built < stop;) {
-          engine.sweep(pixels, built++);
-          if (built % stride === 0) checkpoints.push(pixels.slice());
+          airSeconds += engine.advance(pixels, built++);
+          if (built % stride === 0) { checkpoints.push(pixels.slice()); checkpointAir.push(airSeconds); }
         }
       }
       const now = performance.now();
@@ -179,9 +271,10 @@
       if (data.type === "job") job = data.job;
       if (data.type === "configure") {
         clearTimeout(timer); timer = undefined; key = data.key;request = null;
-        stock = data.stock; lastSolidDepths = null; meshError = "";
+        stock = data.stock; lastSolidDepths = null; meshError = removedError = ""; hasRemovedMesh = false;
         engine = buildEngine(job, stock, data.tools);
         pixels = engine.blank(); checkpoints = [pixels.slice()];built = 0;
+        airSeconds = 0; checkpointAir = [0];
         const maxFrames = Math.max(2, Math.min(120, Math.floor(16 * 1024 * 1024 / pixels.byteLength)));
         stride = Math.max(1, Math.ceil(job.count / maxFrames));
         self.postMessage({key,type:"meta",meta:engine.meta});
@@ -189,6 +282,9 @@
       if (data.type === "active") {
         mode = data.active === true ? "depth" : data.active;
         request = null;
+      }
+      if (data.type === "removed" && removedVisible !== data.visible) {
+        removedVisible = data.visible; hasRemovedMesh = false; removedError = "";
       }
       if (data.type === "seek") request = {t:data.t};
       if (engine && mode && timer === undefined) timer = setTimeout(pump, 0);
@@ -205,7 +301,8 @@
     let job, stock = {x:0,y:0,z:-1,l:1,w:1,h:1}, tools = {};
     let meta, worker, workerUrl, activeView = false, configureTimer, seekTimer;
     let sourceChanged = true, configDirty = true, progress = 0, requested = 0;
-    let imageTime = -1, textureValid = false, key = 0, error = "", solidError = "";
+    let imageTime = -1, textureValid = false, key = 0, error = "", solidError = "", removedError = "";
+    let removedVisible = false;
     let lastDepths = null, solidFrame = null, lastStatus = "", sentTime = -1;
     let zoomFactor = 1, cx = 0, cy = 0, mode = "path", customCamera = false;
     let width = 0, height = 0, scale = 1, lastSeek = 0, frame;
@@ -265,8 +362,12 @@
             // Keep the worker's mesh even if the user switched views while it was in flight.
             // That lets an unchanged future frame arrive with only the new time and depths.
             solidError = data.error || "";
+            removedError = removedVisible ? (data.removedError || "") : "";
             const mesh = data.mesh || solidFrame?.mesh;
-            if (mesh && !solidError) solidFrame = {stock,meta,t:data.t,mesh,depths:data.image};
+            const removedMesh = removedVisible && data.removedVisible
+              ? data.removedMesh || (!data.mesh && solidFrame?.removedMesh) || null : null;
+            if (mesh && !solidError) solidFrame = {stock,meta,t:data.t,mesh,removedMesh,depths:data.image,
+              cutter:data.cutter,removal:data.removal};
             if (onFrame && activeView === "solid") onFrame(solidError ? null : solidFrame);
           }
         }
@@ -289,6 +390,7 @@
           sourceChanged = false;
         }
         worker.postMessage({type:"configure",key,stock,tools});
+        worker.postMessage({type:"removed",visible:removedVisible});
         configDirty = false;progress = 0;meta = undefined;error = "";sentTime = -1;
         worker.postMessage({type:"active",active:activeView});sendSeek();
       } catch (e) {
@@ -298,7 +400,7 @@
     }
     function dirty() {
       key++;configDirty = true;textureValid = false;imageTime = -1;meta = undefined;progress = 0;
-      lastDepths = null;solidFrame = null;solidError = "";error = "";sentTime = -1;
+      lastDepths = null;solidFrame = null;solidError = removedError = "";error = "";sentTime = -1;
       if (onFrame) onFrame(null);
       reportStatus();
       clearTimeout(configureTimer);configureTimer = setTimeout(configure, 35);
@@ -309,6 +411,7 @@
       let status = error;
       if (!status && activeView === "solid") {
         if (solidError) status = solidError;
+        else if (removedError) status = removedError;
         else if (!meta) status = "Preparing stock simulation…";
         else if (meta.unknown.length) status = "Missing cutter diameter for " + meta.unknown.map(i => "T" + i).join(", ") + ". Those cuts are omitted.";
         else if (!meta.activeMoves) status = "No spindle-on feed intersects the stock.";
@@ -443,6 +546,18 @@
         if(JSON.stringify(stock)===JSON.stringify(converted))return;stock=converted;dirty();
       },
       setTools(next) {if(JSON.stringify(tools)===JSON.stringify(next))return;tools=JSON.parse(JSON.stringify(next));dirty();},
+      setRemovedVisible(value) {
+        const next = Boolean(value);
+        if (next === removedVisible) return;
+        removedVisible = next; removedError = "";
+        if (!next && solidFrame?.removedMesh) {
+          solidFrame = {...solidFrame, removedMesh:null};
+          if (activeView === "solid" && onFrame) onFrame(solidFrame);
+        }
+        if (worker) worker.postMessage({type:"removed",visible:next});
+        if (activeView === "solid") { sentTime = -1; sendSeek(); }
+        reportStatus();
+      },
       setTime:seek,
       setActive(view) {
         const next = view === "solid" ? "solid" : (view ? "depth" : false);
@@ -464,5 +579,5 @@
     };
   }
   globalThis.NCCutMap = NCCutMap;
-  if (typeof module !== "undefined" && module.exports) module.exports = {buildStockEngine};
+  if (typeof module !== "undefined" && module.exports) module.exports = {buildStockEngine, stockWorker};
 })();

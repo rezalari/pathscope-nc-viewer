@@ -9,7 +9,9 @@ Drop an NC or G-code file into your browser to inspect its toolpaths and see the
 1. Choose **Open NC file** or drop a file onto the viewer. When the viewer finds a cutter size and a spindle-on feed, it opens at the finished shape. Drag the timeline back or press **Play** to watch material come off.
 2. In **Setup**, check the stock dimensions and lower corner. The viewer reads numbered cutter comments throughout the program, including descriptions beside tool changes. If a size is missing, enter the cutter shape and diameter in millimeters, then choose **Apply stock & tools**.
 3. Switch between **Solid**, **Toolpaths**, and **Cut depth**. Drag the timeline in either direction or jump to a stage or hole. Use **After stage** or **Finished part** to inspect the remaining material.
-4. Drag to rotate the solid, Shift-drag to pan, and scroll to zoom.
+In **Solid**, the **Removed material** checkbox shows the volume already machined away in translucent cyan. **Cutter** shows the active tool at its simulated position. The readout reports removed volume and estimates spindle-on feed time spent in air up to the displayed frame. Both estimates depend on the stock, tool dimensions, and simulation grid. Rapids and moves with unknown cutter sizes are excluded from the air-feed estimate.
+
+Drag to rotate the solid, Shift-drag to pan, and scroll to zoom.
 
 The simulation samples material removed from the top of the stock. Missing tool diameters leave some cuts unmodeled. Unsupported commands can shorten the preview and appear in its notices. Verify workholding, tool changes, clearance, and offsets in the machine and CAM setup before machining.
 

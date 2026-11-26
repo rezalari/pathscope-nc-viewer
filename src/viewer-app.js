@@ -15,6 +15,7 @@
   const flagNames={rapid:'Rapids',future:'Future paths',stock:'Stock',grid:'Grid',markers:'Entry markers',tool:'Cutter'};
   let job=null, source='', ticket=0, playing=false, lastTick=0, time=0, view='solid', seq=[], stageNodes=[], contact=null, entry=null, stageId=-1, stock={}, cutTools={}, dragCount=0, loadState=false;
   let stockFrame=null, activeSlot=null, stopLookup=null, lookupId=0, inspectedTime=null;
+  let comparison=null,showBefore=false,showAllCuts=false,pendingComparison=false;
   const sourceList=NCSourceList({viewport:by('linecode'),input:by('source-line'),go:by('source-go'),note:by('source-note'),
     onSeek:(seconds,line)=>{pause();seek(seconds,line);}});
   function notice(title,msg) { by('msgtitle').textContent=title; by('msgtext').textContent=msg; by('msg').showModal(); }
@@ -81,14 +82,14 @@
     by('dia-'+missing[0]).focus();
   }
   function setView(name) {
-    if(stopLookup)cancelToolLookup();
+    if(stopLookup || (comparison && name!=='solid'))cancelToolLookup();
     if(name!=='path' && entry && !hasSizedTool()){
       configureMissingTools();
       return;
     }
     view=name==='solid'&&!hasSolid?'depth':name;
     by('solid-surface').hidden=view!=='solid';
-    by('solid-inspect').hidden=view!=='solid';
+    by('solid-inspect').hidden=view!=='solid'||Boolean(comparison);
     by('depth-surface').hidden=view!=='depth';
     by('path-surface').hidden=view!=='path';
     by('view-tag').hidden=view!=='path';
@@ -112,7 +113,22 @@
   function toolData(j){const t=j.tool;return j.tools.length?j.tools:(t.length?[t[0]]:[]);}
   function cancelToolLookup(){
     lookupId++;stopLookup?.();stopLookup=null;inspectedTime=null;
+    pendingComparison=false;
+    if(comparison){
+      comparison=null;solid.setComparison(null);
+      by('solid-inspect').hidden=view!=='solid';
+    }
+    by('removal-key').hidden=true;
+    by('show-tool-removal').setAttribute('aria-pressed','false');
     by('tool-result').textContent='';by('show-tool-cut').disabled=by('inspect-tool').disabled;
+    updateRemovalButton();
+  }
+  function updateRemovalButton(){
+    const def=cutTools[Number(by('inspect-tool').value)];
+    const btn=by('show-tool-removal');
+    btn.hidden=!hasSolid||!(def?.d>0);
+    btn.textContent=pendingComparison?'Cancel highlight':comparison?'Close highlight':
+      def?.shape==='chamfer'?'Highlight chamfers':'Highlight cuts';
   }
   function drawToolProfile(def){
     const canvas=by('tool-profile'),ctx=canvas.getContext?.('2d');
@@ -141,6 +157,7 @@
     if(def?.shape==='drill' && def.d>0)details.push('118° included');
     by('tool-dimensions').textContent=details.join(' · ');
     by('show-tool-cut').textContent=def?.d>0?'Show cut':'Set dimensions';
+    updateRemovalButton();
     drawToolProfile(def);
   }
   function setToolInspector(){
@@ -167,6 +184,46 @@
       if(hasSolid)solid.focusCutter({...def,x:result.x,y:result.y,z:result.z});
       by('tool-result').textContent='Cutting on line '+job.line[result.move].toLocaleString()+' at '+clock(result.t)+'.';
     });
+  }
+  function highlightTool(){
+    if(!hasSolid || !job?.count)return;
+    if(pendingComparison || comparison){cancelToolLookup();return;}
+    const slot=Number(by('inspect-tool').value),def=cutTools[slot];
+    if(!(def?.d>0))return;
+    pause();cancelToolLookup();setView('solid');
+    pendingComparison=true;updateRemovalButton();
+    const id=lookupId;
+    const status='Comparing stock for '+toolName(slot);
+    by('tool-result').textContent=status+'…';
+    stopLookup=cut.findToolRemoval(slot,(result,error)=>{
+      if(id!==lookupId)return;
+      stopLookup=null;pendingComparison=false;updateRemovalButton();
+      if(!result || !result.count){
+        by('tool-result').textContent=error?'Could not compare stock: '+error:result?.volumeMM3>0?
+          toolName(slot)+' removed material that another tool subsequently cut away.':
+          'No exposed cut surfaces found for '+toolName(slot)+' at this stock resolution.';
+        return;
+      }
+      comparison=result;showAllCuts=false;setComparisonTime(false);solid.focusRemoval(result,def.d);
+      by('solid-inspect').hidden=true;
+      by('removal-key').hidden=false;by('removal-fit').textContent='Fit all cuts';
+      by('removal-before').hidden=!result.beforeDepths;
+      by('show-tool-removal').setAttribute('aria-pressed','true');
+      by('tool-result').textContent=toolName(slot)+' removed an estimated '+
+        result.volumeMM3.toLocaleString(undefined,{maximumSignificantDigits:4})+' mm³. Lime marks its exposed cut surfaces.';
+    },fraction=>{
+      if(id===lookupId)by('tool-result').textContent=status+' · '+Math.floor(fraction*100)+'%';
+    });
+  }
+  function setComparisonTime(before){
+    showBefore=before;
+    inspectedTime=before?comparison.firstTime:comparison.lastTime;
+    seek(inspectedTime);showProfile(comparison.tool);
+    const name=comparison.tool?'T'+comparison.tool:'unnumbered tool';
+    by('removal-label').textContent=(before?'Stock before ':'Surfaces cut by ')+name;
+    by('removal-key').classList.toggle('before',before);
+    by('removal-before').textContent=before?'Show after':'Show before';
+    solid.setComparison(comparison,before);
   }
   function seek(value,chosenLine) {
     if(stopLookup || (inspectedTime!==null && value!==inspectedTime))cancelToolLookup();
@@ -434,6 +491,14 @@
   function loadFile(f){if(f)load(()=>f.text(),f.name);}
   on('inspect-tool','change',()=>{pause();cancelToolLookup();showProfile(Number(by('inspect-tool').value));});
   on('show-tool-cut','click',inspectCut);
+  on('show-tool-removal','click',highlightTool);
+  on('removal-close','click',cancelToolLookup);
+  on('removal-before','click',()=>{if(comparison?.beforeDepths)setComparisonTime(!showBefore);});
+  on('removal-fit','click',()=>{
+    if(!comparison)return;
+    showAllCuts=!showAllCuts;solid.focusRemoval(comparison,cutTools[comparison.tool].d,showAllCuts);
+    by('removal-fit').textContent=showAllCuts?'Zoom to detail':'Fit all cuts';
+  });
   makeFields(); on('close-msg','click',()=>by('msg').close());on('open-btn','click',()=>by('file').click());on('file','change',e=>{loadFile(e.target.files[0]);e.target.value='';});on('demo-btn','click',sample);on('job-tab','click',()=>setTab(false));on('setup-tab','click',()=>setTab(true));on('configure-tools','click',configureMissingTools);
   on('play','click',play);on('prev-step','click',()=>step(false));on('next-step','click',()=>step(true));on('progress','input',()=>{if(job)jump(job.duration*Number(by('progress').value)/1000000);});on('apply','click',applyConfig);
   function jumpInView(target,seconds){jump(seconds);if(view!==target)setView(target);}

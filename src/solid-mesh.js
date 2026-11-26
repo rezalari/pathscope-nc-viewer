@@ -1,6 +1,6 @@
 /* A boundary mesh of the material below a three-axis milling height field.
    The function is self-contained so it can be installed in the simulation worker. */
-function buildSolidMesh(stock, meta, depths, removed) {
+function buildSolidMesh(stock, meta, depths, removed, selection) {
   "use strict";
   const {x, y, z, l, w, h} = stock;
   const bounds = {min: [x, y, z], max: [x + l, y + w, z + h]};
@@ -54,7 +54,7 @@ function buildSolidMesh(stock, meta, depths, removed) {
     for (let i = 0; i < depths.length; i++) if (depths[i]) { disturbed = true; break; }
   }
   if (!disturbed) {
-    if (removed) return result();
+    if (removed || selection) return result();
     plane(x, y, x + l, y + w, top, false); plane(x, y, x + l, y + w, z, true);
     wall(x, y, x + l, y, z, z, top, top, 0, -1);
     wall(x + l, y, x + l, y + w, z, z, top, top, 1, 0);
@@ -78,10 +78,19 @@ function buildSolidMesh(stock, meta, depths, removed) {
   const xx = ax.points, yy = ay.points, nx = xx.length - 1, ny = yy.length - 1;
   const count = nx * ny, values = new Uint16Array(count);
   const sampled = new Uint8Array(count);
+  // Selected-tool faces use precisely the same interpolated heights and
+  // topology as the remaining stock. A newly exposed wall can begin partway
+  // down an existing pocket; before[] bounds the portion created by this tool.
+  const selected = selection && new Uint8Array(count);
+  const before = selection && new Uint16Array(count);
   for (let j = 0; j < meta.ny; j++) {
     const k = (j + ay.offset) * nx + ax.offset, i = j * meta.nx;
     values.set(depths.subarray(i, i + meta.nx), k);
     sampled.fill(1, k, k + meta.nx);
+    if (selection) {
+      selected.set(selection.mask.subarray(i, i + meta.nx), k);
+      before.set(selection.before.subarray(i, i + meta.nx), k);
+    }
   }
 
   // Join nearby samples into a continuous surface across shallow slopes,
@@ -135,6 +144,7 @@ function buildSolidMesh(stock, meta, depths, removed) {
   }
   for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
     const cell = j * nx + i, k = cell * 4;
+    if (selected && !selected[cell]) continue;
     // Along a smooth cut entry, the interpolated surface can slope toward
     // the first cut cell from a sample that was exactly at stock top.
     if (values[cell] === through && corners[k] === through && corners[k+1] === through &&
@@ -167,35 +177,53 @@ function buildSolidMesh(stock, meta, depths, removed) {
       plane(xx[i], yy[j], xx[endX], yy[endY], underside ? z : height(key), underside);
     }
   }
-  mergePlanes(flat, false); mergePlanes(bottom, true);
+  mergePlanes(flat, false);
+  if (!selected) mergePlanes(bottom, true);
 
   // Connect the two top edges at sharp changes, holes and outer boundaries.
   // If two piecewise heights cross, split at the crossing before orienting.
-  function seam(x0, y0, x1, y1, a, b, c, d, vx, vy) {
+  function seam(x0, y0, x1, y1, a, b, c, d, vx, vy, cellA, cellC) {
     const da = c - a, db = d - b;
     if (!da && !db) return;
     if (da * db < 0) {
       const t = da / (da - db), mid = a + (b - a) * t;
       const px = x0 + (x1 - x0) * t, py = y0 + (y1 - y0) * t;
-      seam(x0, y0, px, py, a, mid, c, mid, vx, vy);
-      seam(px, py, x1, y1, mid, b, mid, d, vx, vy);
+      seam(x0, y0, px, py, a, mid, c, mid, vx, vy, cellA, cellC);
+      seam(px, py, x1, y1, mid, b, mid, d, vx, vy, cellA, cellC);
     } else if (da > 0 || db > 0) {
-      wall(x0, y0, x1, y1, height(c), height(d), height(a), height(b), vx, vy);
+      exposedWall(x0, y0, x1, y1, height(c), height(d), height(a), height(b), vx, vy, cellC);
     } else {
-      wall(x1, y1, x0, y0, height(b), height(a), height(d), height(c), -vx, -vy);
+      exposedWall(x1, y1, x0, y0, height(b), height(a), height(d), height(c), -vx, -vy, cellA);
+    }
+  }
+  function exposedWall(x0, y0, x1, y1, low0, low1, high0, high1, vx, vy, deeper) {
+    if (!selected) { wall(x0,y0,x1,y1,low0,low1,high0,high1,vx,vy); return; }
+    if (!selected[deeper]) return;
+    const ceiling = height(before[deeper]);
+    const breaks = [0, 1];
+    for (const [a,b] of [[low0,low1],[high0,high1]]) {
+      if ((a-ceiling)*(b-ceiling)<0) breaks.push((ceiling-a)/(b-a));
+    }
+    breaks.sort((a,b)=>a-b);
+    for (let i=1; i<breaks.length; i++) {
+      const a=breaks[i-1], b=breaks[i], l0=low0+a*(low1-low0), l1=low0+b*(low1-low0);
+      if (a===b || (l0+l1)/2>=ceiling) continue;
+      wall(x0+a*(x1-x0),y0+a*(y1-y0),x0+b*(x1-x0),y0+b*(y1-y0),
+        l0,l1,Math.max(l0,Math.min(ceiling,high0+a*(high1-high0))),
+        Math.max(l1,Math.min(ceiling,high0+b*(high1-high0))),vx,vy);
     }
   }
   for (let j = 0; j < ny; j++) for (let i = 0; i <= nx; i++) {
     const left = 4 * (j * nx + i - 1), right = left + 4;
     seam(xx[i], yy[j], xx[i], yy[j + 1], i ? corners[left + 1] : through,
       i ? corners[left + 2] : through, i < nx ? corners[right] : through,
-      i < nx ? corners[right + 3] : through, 1, 0);
+      i < nx ? corners[right + 3] : through, 1, 0, i ? left/4 : -1, i < nx ? right/4 : -1);
   }
   for (let j = 0; j <= ny; j++) for (let i = 0; i < nx; i++) {
     const north = 4 * (j * nx + i), south = north - 4 * nx;
     seam(xx[i + 1], yy[j], xx[i], yy[j], j ? corners[south + 2] : through,
       j ? corners[south + 3] : through, j < ny ? corners[north + 1] : through,
-      j < ny ? corners[north] : through, 0, 1);
+      j < ny ? corners[north] : through, 0, 1, j ? south/4 : -1, j < ny ? north/4 : -1);
   }
   if (removed) {
     const mirror = z + top;

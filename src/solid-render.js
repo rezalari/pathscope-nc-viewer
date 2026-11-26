@@ -30,7 +30,8 @@
       'vec2 uv=(xy-crop.xy)/crop.zw; if(any(lessThan(uv,vec2(0.)))||any(greaterThan(uv,vec2(1.))))return bottomHeight.x+bottomHeight.y;'+
       'return bottomHeight.x+bottomHeight.y*(1.-'+sample+'(field,uv).r);}\n'+
       'float blocker(vec2 shift,float reach){return clamp((heightAt(world.xy+shift)-world.z)/reach,0.,1.);}\n'+
-      'void main(){vec3 n=normalize(normal);if(material>1.5){'+(version2?'outColor':'gl_FragColor')+'=vec4(.36,.82,.98,.11);return;}'+
+      'void main(){vec3 n=normalize(normal);if(material>2.5){float k=.86+.14*max(dot(n,light1),0.);'+(version2?'outColor':'gl_FragColor')+'=vec4(k*vec3(.66,1.,.20),1.);return;}'+
+      'if(material>1.5){'+(version2?'outColor':'gl_FragColor')+'=vec4(.36,.82,.98,.11);return;}'+
       'if(material>.5){float k=.54+.44*max(dot(n,light1),0.)+.15*max(dot(n,light2),0.);'+(version2?'outColor':'gl_FragColor')+'=vec4(k*cutterTint,1.);return;}float high=clamp((world.z-bottomHeight.x)/bottomHeight.y,0.,1.);'+
       'float reach=clamp(bottomHeight.y*.13,.20,1.10);vec2 a=vec2(reach,0.),b=a.yx;'+
       'float ao=relief*(blocker(a,reach)+blocker(-a,reach)+blocker(b,reach)+blocker(-b,reach))*.25;'+
@@ -62,6 +63,7 @@
     const buffers=[gl.createBuffer(),gl.createBuffer(),gl.createBuffer()];
     const toolBuffers=[gl.createBuffer(),gl.createBuffer(),gl.createBuffer()];
     const ghostBuffers=[gl.createBuffer(),gl.createBuffer(),gl.createBuffer()];
+    const highlightBuffers=[gl.createBuffer(),gl.createBuffer(),gl.createBuffer()];
     const tex=gl.createTexture(), A=['aPosition','aNormal'].map(n=>gl.getAttribLocation(pg,n)), u={};
     for (const name of ['center','rowX','rowY','rowZ','pan','eye','light1','light2','crop','stockRect','bottomHeight','relief','field','material','origin','cutterTint'])
       u[name]=gl.getUniformLocation(pg,name);
@@ -69,7 +71,7 @@
     gl.bindTexture(gl.TEXTURE_2D,tex);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);gl.pixelStorei(gl.UNPACK_ALIGNMENT,1);
-    let uploaded, uploadedMesh, uploadedCutter, uploadedGhost, tint=new Uint8Array(1);
+    let uploaded, uploadedMesh, uploadedCutter, uploadedGhost, uploadedHighlight, tint=new Uint8Array(1);
     function upload(mesh, target) {
       for(const [i,arr] of [mesh.positions,mesh.normals].entries()){
         gl.bindBuffer(gl.ARRAY_BUFFER,target[i]);gl.bufferData(gl.ARRAY_BUFFER,arr,gl.DYNAMIC_DRAW);
@@ -105,6 +107,16 @@
       gl.uniform3fv(u.eye,eye);gl.uniform3fv(u.light1,lamp);gl.uniform3fv(u.light2,fill);
       gl.uniform4f(u.stockRect,stock.x,stock.y,stock.x+stock.l,stock.y+stock.w);gl.uniform2f(u.bottomHeight,stock.z,stock.h);
       gl.drawElements(gl.TRIANGLES,mesh.indices.length,gl.UNSIGNED_INT,0);
+      const highlight=frame.highlightMesh;
+      if(highlight?.indices.length){
+        if(uploadedHighlight!==highlight){upload(highlight,highlightBuffers);uploadedHighlight=highlight;}
+        use(highlightBuffers);gl.uniform1f(u.material,3);
+        // The overlay reuses stock faces. Bias their depth only for coplanar
+        // rasterization so the surrounding walls still occlude hidden faces.
+        gl.enable(gl.POLYGON_OFFSET_FILL);gl.polygonOffset(-1,-1);
+        gl.drawElements(gl.TRIANGLES,highlight.indices.length,gl.UNSIGNED_INT,0);
+        gl.disable(gl.POLYGON_OFFSET_FILL);
+      }
       if(cutter?.mesh.indices.length){
         if(uploadedCutter!==cutter.mesh){upload(cutter.mesh,toolBuffers);uploadedCutter=cutter.mesh;}
         use(toolBuffers);gl.uniform1f(u.material,1);gl.uniform3fv(u.origin,cutter.origin);
@@ -124,7 +136,7 @@
         gl.depthMask(true);gl.disable(gl.BLEND);gl.uniform1f(u.material,0);
       }
     }
-    return {draw,release:()=>{uploaded=uploadedMesh=uploadedGhost=uploadedCutter=undefined;},destroy:()=>{[...buffers,...ghostBuffers,...toolBuffers].forEach(b=>gl.deleteBuffer(b));gl.deleteTexture(tex);gl.deleteProgram(pg);}};
+    return {draw,release:()=>{uploaded=uploadedMesh=uploadedGhost=uploadedCutter=uploadedHighlight=undefined;},destroy:()=>{[...buffers,...ghostBuffers,...toolBuffers,...highlightBuffers].forEach(b=>gl.deleteBuffer(b));gl.deleteTexture(tex);gl.deleteProgram(pg);}};
   }
 
   /* Painter sorting incorrectly fills through-holes in a tilted bar. The software fallback
@@ -135,11 +147,12 @@
     pixels.fill(0);zbuffer.fill(-Infinity);
     if(!frame?.mesh)return;
     paint(frame.mesh,'stock',reusable);
+    if(frame.highlightMesh)paint(frame.highlightMesh,'highlight',reusable.highlight??={});
     if(cutter)paint(cutter.mesh,'cutter',reusable.cutter??={});
     if(showRemoved&&frame.removedMesh)paint(frame.removedMesh,'ghost',reusable.ghost??={});
 
     function paint(mesh,material,cache) {
-      const ghost=material==='ghost', tool=material==='cutter', origin=tool?cutter.origin:[0,0,0];
+      const ghost=material==='ghost', tool=material==='cutter', highlight=material==='highlight', origin=tool?cutter.origin:[0,0,0];
       const {positions:p,normals:n,indices}=mesh;
       if(!indices.length)return;
       if(!cache.s||cache.s.length!==p.length){cache.s=new Float32Array(p.length);cache.light=ghost?null:new Float32Array(p.length);}
@@ -160,6 +173,11 @@
         if(ghost)continue;
         const a=n[k],b=n[k+1],c=n[k+2];
         const key=Math.max(0,a*lamp[0]+b*lamp[1]+c*lamp[2]),soft=Math.max(0,a*fill[0]+b*fill[1]+c*fill[2]);
+        if(highlight){
+          const light=255*(.86+.14*key);
+          colors[k]=.66*light;colors[k+1]=light;colors[k+2]=.20*light;
+          continue;
+        }
         if(tool){
           const bright=.54+.44*key+.15*soft;
           for(let ch=0;ch<3;ch++)colors[k+ch]=255*clamp(bright*cutter.tint[ch],0,1);
@@ -209,7 +227,7 @@
               rgba[ptr+3]=255*out;
               continue;
             }
-            if(depth<zbuffer[at])continue;
+            if(depth+(highlight?1e-5:0)<zbuffer[at])continue;
             zbuffer[at]=depth;
             const red=(r0+u*dr1+v*dr2+.5)|0,green=(g0+u*dg1+v*dg2+.5)|0,blue=(blue0+u*db1+v*db2+.5)|0;
             pixels[at]=(255<<24)|(blue<<16)|(green<<8)|red;
@@ -269,13 +287,37 @@
       this.reset();this.focus=null;this.schedule();
     }
     setJob(job){this.activeJob=job;this.reset();this.requested=0;this.fit('path');}
-    reset(){this.frame=null;this.meta=null;this.notice='';this.output?.release();this.schedule();}
+    reset(){this.frame=null;this.comparison=null;this.meta=null;this.notice='';this.output?.release();this.schedule();}
     setFrame(frame){
       if(!frame){this.reset();return;}if(!frame.mesh)return;
       this.frame=frame;this.setMeta(frame.meta);
       this.schedule();
     }
     setRemovedVisible(yes){if(this.showRemoved!==!!yes){this.showRemoved=!!yes;this.schedule();}}
+    setComparison(result,before=false){
+      if(before && !result.beforeMesh) result.beforeMesh=globalThis.buildSolidMesh(result.stock,result.meta,result.beforeDepths);
+      this.comparison=result?{
+        t:before?result.firstTime:result.lastTime,mesh:before?result.beforeMesh:result.stockMesh,
+        highlightMesh:before?null:result.mesh,meta:result.meta,depths:before?result.beforeDepths:result.depths,
+        before
+      }:null;
+      this.schedule();
+    }
+    focusRemoval(result,diameter,all=false){
+      const b=result.bounds,point=result.firstCut;
+      this.elevation=1.12;this.yaw=-.42;this.factor=1;this.pan=[0,0];this.fitAxes=basis(this.yaw,this.elevation);
+      // A repeated operation can span the whole bar. Start on one cut at a
+      // scale where its edge is legible, and keep the complete footprint available.
+      const radius=Math.max(diameter*2.8,Math.max(result.sx,result.sy)*14);
+      const pad=Math.max(radius*.28,.4);
+      if(all || !point || Math.max(b[3]-b[0],b[4]-b[1])<radius*2){
+        this.focus=[b[0]-pad,b[1]-pad,b[2]-pad,b[3]+pad,b[4]+pad,b[5]+pad];
+      }else{
+        this.focus=[point.x-radius,point.y-radius,point.z-radius*.35,
+          point.x+radius,point.y+radius,point.z+radius*.35];
+      }
+      this.schedule();
+    }
     setCutterVisible(yes){if(this.showCutter!==!!yes){this.showCutter=!!yes;this.schedule();}}
     displayedCutter(frame){
       const c=frame?.cutter;
@@ -333,6 +375,10 @@
     }
     updateHud(){
       if(!this.status||!this.active)return;
+      if(this.comparison){
+        this.status.textContent=(this.comparison.before?'Stock before the selected tool at ':'Cut surfaces after the selected tool at ')+clock(this.comparison.t);
+        return;
+      }
       const f=this.requested===0?this.blank:(this.frame||this.blank), shown=f.t??0,m=this.meta;
       let msg;
       if(!this.available)msg='3D rendering unavailable. Choose Cut depth.';
@@ -366,14 +412,14 @@
       const d=this.usingCPU?Math.min(dpr,1.1,Math.sqrt(680000/(cam.w*cam.h))):Math.min(dpr,2);
       const w=Math.max(1,Math.round(cam.w*d)),h=Math.max(1,Math.round(cam.h*d));
       if(this.canvas.width!==w||this.canvas.height!==h){this.canvas.width=w;this.canvas.height=h;}
-      const frame=this.requested===0?(this.frame?.t===0?this.frame:this.blank):(this.frame||this.blank);
-      const cutter=this.displayedCutter(frame);
+      const frame=this.comparison||(this.requested===0?(this.frame?.t===0?this.frame:this.blank):(this.frame||this.blank));
+      const cutter=this.comparison?null:this.displayedCutter(frame);
       if(cutter){
         const tip=cutter.origin.map((v,i)=>v-cam.center[i]);
         const span=cutter.mesh.bounds?.max||[0,0,frame.cutter.d*8];
         cam.range=Math.max(cam.range,Math.abs(dot(tip,cam.eye))+Math.hypot(...span)+1);
       }
-      this.output?.draw(frame,cam,this.stock,this.showRemoved,cutter);this.drawAxes(cam);this.updateHud();
+      this.output?.draw(frame,cam,this.stock,!this.comparison&&this.showRemoved,cutter);this.drawAxes(cam);this.updateHud();
     }
     schedule(){if(this.active&&!this.raf)this.raf=requestAnimationFrame(()=>{this.raf=0;this.draw();});}
     bindInput(){

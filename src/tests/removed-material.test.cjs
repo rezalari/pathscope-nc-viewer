@@ -71,6 +71,20 @@ const point=(im,x,y)=>{
   return [...im.subarray(at,at+4)];
 };
 assert.deepEqual(point(backSolo,1.42,2.33),point(backGhost,1.42,2.33)); // opaque blind pocket floor hides ghost from below
+// Color a subset of the actual remaining surface. A top view must distinguish
+// the selected cutter's floor from the untouched neighboring stock.
+const z=stock.z+stock.h*(1-depths[1]/65535);
+const patch={
+  positions:new Float32Array([1,2,z,2,2,z,2,3,z,1,3,z]),
+  normals:new Float32Array([0,0,1,0,0,1,0,0,1,0,0,1]),
+  indices:new Uint32Array([0,1,2,0,2,3])
+};
+const marked={...frame,highlightMesh:patch};
+const highlightImage=draw(marked,cam,false);
+const lime=rgba(highlightImage,1.4,2.33);
+assert.ok(lime[1]>210 && lime[2]<65 && lime[0]<lime[1]);
+assert.deepEqual(rgba(highlightImage,3.4,3.58),rgba(solo,3.4,3.58));
+assert.deepEqual(point(draw(marked,back,false),1.42,2.33),point(backSolo,1.42,2.33));
 console.log('Removed material matches stock volume, illuminates only cut areas, and respects stock and cutter occlusion.');
 
 // The WebGL path must also draw a full frame after the operator hides a layer.
@@ -81,6 +95,8 @@ const gl=new Proxy({
   drawElements:(mode,count)=>drawCalls.push(count)
 },{get:(target,name)=>target[name]??(typeof name==='string' && /^[A-Z0-9_]+$/.test(name)?1:()=>({}))});
 const output=gpu({getContext:()=>gl,width:side,height:side});
+output.draw(marked,{...cam,range:15},stock,false,null);
+assert.deepEqual(drawCalls,[frame.mesh.indices.length,patch.indices.length]);
 for(const removed of [true,false,true]){
   drawCalls.length=0;
   output.draw(frame,{...cam,range:15},stock,removed,cutter);

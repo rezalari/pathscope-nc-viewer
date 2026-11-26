@@ -71,8 +71,31 @@ const wait=async pred=>{for(let i=0;i<150;i++){await new Promise(r=>setTimeout(r
  if(solidAvailable){const focus=solidClicks.filter(c=>c[0]==='focusCutter').at(-1)[1];assert.equal(focus.shape,'chamfer');assert.equal(focus.x,8);}
  by('show-tool-cut').click();cutClicks.filter(c=>c[0]==='findToolCut').at(-1)[2](null);
  assert.match(by('tool-result').textContent,/No sampled material removal/);
+ if(solidAvailable){
+   assert.equal(by('show-tool-removal').textContent,'Highlight chamfers');
+   by('show-tool-removal').click();
+   const pending=cutClicks.filter(call=>call[0]==='findToolRemoval').at(-1);
+   by('show-tool-removal').click();
+   const comparison={tool:6,lastTime:cuttingTime,firstTime:cuttingTime-1,beforeDepths:new Uint16Array(4),count:4,volumeMM3:.4};
+   pending[2](comparison);
+   assert.notEqual(by('removal-key').hidden,false,'cancelled comparison must not open');
+   by('show-tool-removal').click();cutClicks.filter(call=>call[0]==='findToolRemoval').at(-1)[2](comparison);
+   assert.equal(by('removal-key').hidden,false);
+   assert.equal(by('solid-inspect').hidden,true);
+   assert.match(by('removal-label').textContent,/T6/);assert.match(by('tool-result').textContent,/0.4 mm³/);
+   assert.equal(solidClicks.filter(call=>call[0]==='setComparison').at(-1)[1],comparison);
+   by('removal-before').click();assert.equal(solidClicks.filter(call=>call[0]==='setComparison').at(-1)[2],true);
+   assert.match(by('removal-label').textContent,/Stock before T6/);
+   by('removal-before').click();assert.equal(solidClicks.filter(call=>call[0]==='setComparison').at(-1)[2],false);
+   by('removal-fit').click();assert.equal(solidClicks.filter(call=>call[0]==='focusRemoval').at(-1)[3],true);
+   by('removal-fit').click();assert.equal(solidClicks.filter(call=>call[0]==='focusRemoval').at(-1)[3],false);
+ }else assert.equal(by('show-tool-removal').hidden,true);
  by('progress').value='420000';
  ev('progress','input');
+ if(solidAvailable){
+   assert.equal(by('removal-key').hidden,true);
+   assert.equal(solidClicks.filter(call=>call[0]==='setComparison').at(-1)[1],null);
+ }
  const position=(solidAvailable?solidClicks:cutClicks).filter(v=>v[0]==='setTime').at(-1)[1];
  assert(Math.abs(position-.42*loaded[0].duration)<.0001);
  by('stage-select').value='1';ev('stage-select','change');by('to-stage-end').click();

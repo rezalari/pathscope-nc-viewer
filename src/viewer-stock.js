@@ -2,7 +2,7 @@
 (function () {
   "use strict";
 
-  function buildStockEngine(job, stock, definitions) {
+  function buildStockEngine(job, stock, definitions, detail = false) {
     const {xyz, kind, spindle, tool, count, endTime} = job;
     const {x, y, z, l, w, h} = stock;
     const top = z + h;
@@ -45,7 +45,10 @@
     if (!activeMoves) { xmin = x; ymin = y; xmax = x + l; ymax = y + w; }
     const width = xmax - xmin, height = ymax - ymin;
     // Sample only the region that a cutting tool can touch. Untouched bar is drawn separately.
-    const pitch = Math.max(0.10, width / 600, height / 600, Math.sqrt(width * height / 75000));
+    // Only a requested per-tool comparison pays for the finer grid. This
+    // gives a 0.20 mm edge break several samples on typical desktop CNC stock.
+    const pitch = detail ? Math.max(0.06, width / 3200, height / 3200, Math.sqrt(width * height / 1250000)) :
+      Math.max(0.10, width / 600, height / 600, Math.sqrt(width * height / 75000));
     const nx = Math.max(1, Math.ceil(width / pitch)), ny = Math.max(1, Math.ceil(height / pitch));
     const sx = width / nx, sy = height / ny;
     const factor = 65535 / h;
@@ -53,7 +56,7 @@
     const blank = () => new Uint16Array(nx * ny);
     const clamp = (t, a, b) => Math.max(a, Math.min(b, t));
 
-    function sweep(pixels, i, fraction = 1, from = 0) {
+    function sweep(pixels, i, fraction = 1, from = 0, attribution) {
       if (kind[i] !== 1 || !spindle[i] || fraction <= from) return 0;
       const tip = tools[tool[i]];
       if (!tip) return 0;
@@ -119,6 +122,13 @@
           const removed = baseZ <= z ? 65535 : Math.min(65534, Math.round((top - baseZ) * factor));
           if (removed > pixels[idx]) {
             added += removed - pixels[idx];
+            if (attribution) {
+              if (attribution.selected) {
+                if (!attribution.mask[idx]) attribution.before[idx] = pixels[idx];
+                attribution.mask[idx] = 1;
+                if (attribution.first < 0) attribution.first = idx;
+              } else attribution.mask[idx] = 0;
+            }
             pixels[idx] = removed;
           }
         }
@@ -218,9 +228,103 @@
     let job, engine, stock, pixels, checkpoints, stride, built, mode, timer, request;
     let airSeconds, checkpointAir;
     let lastSolidDepths, meshError, removedError, removedVisible = false, hasRemovedMesh = false;
-    let key = 0, lastProgress = 0, lookup;
+    let key = 0, lastProgress = 0, lookup, definitions, comparison, comparisonTimer;
     const firstCuts = new Map();
 
+    function cancelComparison() {
+      clearTimeout(comparisonTimer); comparisonTimer=undefined; comparison=null;
+    }
+    function finishComparison(result) {
+      const {id}=comparison;
+      cancelComparison();
+      const buffers=[];
+      if (result) {
+        buffers.push(result.depths.buffer);
+        if(result.beforeDepths) buffers.push(result.beforeDepths.buffer);
+        for (const mesh of [result.stockMesh,result.mesh]) {
+          buffers.push(mesh.positions.buffer,mesh.normals.buffer,mesh.indices.buffer);
+        }
+      }
+      self.postMessage({key,type:"tool-removal",id,result},buffers);
+    }
+    function summarizeComparison(c) {
+      const {field,depths,mask,before,units,slot,last,first}=c;
+      if (!units) return null;
+      const meta=field.meta, {nx,sx,sy,xmin,ymin}=meta, unit=stock.h/65535;
+      const top=stock.z+stock.h, bounds=[Infinity,Infinity,Infinity,-Infinity,-Infinity,-Infinity];
+      // Only adjacent uses share a true, unambiguous "before this tool" view.
+      const beforeDepths=c.contiguous ? depths.slice() : null;
+      let count=0, nearest=-1, best=Infinity;
+      const seedX=first%nx, seedY=Math.floor(first/nx);
+      for(let i=0; i<mask.length; i++) {
+        if(!mask[i]) continue;
+        if(beforeDepths) beforeDepths[i]=before[i];
+        count++;
+        const col=i%nx,row=Math.floor(i/nx),x=xmin+sx*col,y=ymin+sy*row;
+        bounds[0]=Math.min(bounds[0],x); bounds[1]=Math.min(bounds[1],y);
+        bounds[2]=Math.min(bounds[2],top-depths[i]*unit);
+        bounds[3]=Math.max(bounds[3],x+sx); bounds[4]=Math.max(bounds[4],y+sy);
+        bounds[5]=Math.max(bounds[5],top-before[i]*unit);
+        const dist=((col-seedX)*sx)**2+((row-seedY)*sy)**2;
+        if(dist<best){best=dist; nearest=i;}
+      }
+      // Some tools make an earlier cut that other tools completely erase,
+      // then return for an air pass. Report the removed volume with no visible faces.
+      const firstCut=count ? {x:xmin+(nearest%nx+.5)*sx,y:ymin+(Math.floor(nearest/nx)+.5)*sy,
+        z:top-depths[nearest]*unit} : null;
+      const stockMesh=buildMesh(stock,meta,depths);
+      const mesh=buildMesh(stock,meta,depths,false,{mask,before});
+      return {tool:slot,count,volumeMM3:units*sx*sy*unit,bounds:count?bounds:null,
+        firstCut,firstTime:c.firstTime,lastTime:job.endTime[last],sx,sy,sz:unit,stock,meta,depths,
+        beforeDepths,mesh,stockMesh};
+    }
+    function pumpComparison() {
+      comparisonTimer=undefined;
+      const c=comparison;
+      if(!c) return;
+      try {
+        const deadline=performance.now()+16;
+        while(c.i<=c.last && performance.now()<deadline){
+          const stop=Math.min(c.last+1,c.i+32);
+          for(;c.i<stop;c.i++){
+            c.selected=job.tool[c.i]===c.slot;
+            const units=c.field.sweep(c.depths,c.i,1,0,c);
+            if(c.selected) c.units+=units;
+          }
+        }
+        if(c.i>c.last) {
+          self.postMessage({key,type:"removal-progress",id:c.id,progress:1});
+          finishComparison(summarizeComparison(c));
+        } else {
+          const now=performance.now();
+          if(now-c.lastReport>=250) {
+            c.lastReport=now;
+            self.postMessage({key,type:"removal-progress",id:c.id,progress:c.i/(c.last+1)});
+          }
+          comparisonTimer=setTimeout(pumpComparison,0);
+        }
+      } catch (error) {
+        const id=c.id; cancelComparison();
+        self.postMessage({key,type:"tool-removal",id,result:null,error:String(error.message||error)});
+      }
+    }
+    function startComparison(id,slot) {
+      cancelComparison();
+      // Compare at the end of the last usage of the requested slot, including
+      // earlier usages and all other tools intervening between them.
+      const last=job.tool.lastIndexOf(slot);
+      comparison={id,slot,last};
+      if(last<0 || !engine.hasTool(slot)){finishComparison(null);return;}
+      const field=buildEngine(job,stock,definitions,true);
+      const depths=field.blank();
+      const firstMove=job.tool.indexOf(slot);
+      let contiguous=true;
+      for(let i=firstMove; i<=last && contiguous; i++) contiguous=job.tool[i]===slot;
+      Object.assign(comparison,{field,depths,mask:new Uint8Array(depths.length),before:field.blank(),
+        contiguous,firstTime:firstMove ? job.endTime[firstMove-1] : 0,
+        units:0,first:-1,selected:false,i:0,lastReport:performance.now()});
+      comparisonTimer=setTimeout(pumpComparison,0);
+    }
     function report() { self.postMessage({key, type:"progress", progress: job.count ? built / job.count : 1}); }
     function resolveLookup() {
       if (!lookup) return;
@@ -327,10 +431,10 @@
       if (built < job.count && (mode || lookup)) timer = setTimeout(pump, 0);
     }
     self.onmessage = ({data}) => {
-      if (data.type === "job") job = data.job;
+      if (data.type === "job") {cancelComparison(); job = data.job;}
       if (data.type === "configure") {
         clearTimeout(timer); timer = undefined; key = data.key;request = null;
-        firstCuts.clear(); lookup=null;
+        firstCuts.clear(); lookup=null; cancelComparison(); definitions=data.tools;
         stock = data.stock; lastSolidDepths = null; meshError = removedError = ""; hasRemovedMesh = false;
         engine = buildEngine(job, stock, data.tools);
         pixels = engine.blank(); checkpoints = [pixels.slice()];built = 0;
@@ -349,6 +453,8 @@
       if (data.type === "seek") request = {t:data.t};
       if(data.type==="find-cut" && data.key===key){lookup={id:data.id,tool:data.tool};resolveLookup();}
       if(data.type==="cancel-find" && data.key===key && lookup?.id===data.id) lookup=null;
+      if(data.type==="find-removal" && data.key===key) startComparison(data.id,data.tool);
+      if(data.type==="cancel-removal" && data.key===key && comparison?.id===data.id) cancelComparison();
       if (engine && (mode || lookup) && timer === undefined) timer = setTimeout(pump, 0);
     };
   }
@@ -366,7 +472,7 @@
     let imageTime = -1, textureValid = false, key = 0, error = "", solidError = "", removedError = "";
     let removedVisible = false;
     let lastDepths = null, solidFrame = null, lastStatus = "", sentTime = -1;
-    let lookup=null, nextLookup=0;
+    let lookup=null, nextLookup=0, cachedComparison=null;
     let zoomFactor = 1, cx = 0, cy = 0, mode = "path", customCamera = false;
     let width = 0, height = 0, scale = 1, lastSeek = 0, frame;
     let cursorX, cursorY;
@@ -414,6 +520,11 @@
       worker.onmessage = ({data}) => {
         if (data.key !== key) return;
         if (data.type === "tool-cut") {finishLookup(data.id,data.cut); return;}
+        if (data.type === "tool-removal") {finishLookup(data.id,data.result,data.error); return;}
+        if (data.type === "removal-progress") {
+          if(lookup?.id===data.id) lookup.onProgress?.(data.progress);
+          return;
+        }
         if (data.type === "meta") {
           meta = data.meta;textureValid = false;
           if (!customCamera) fit(mode);
@@ -439,8 +550,8 @@
         schedulePaint();
       };
       worker.onerror = event => {
-        if(lookup) finishLookup(lookup.id,null);
         error = "Depth preview unavailable" + (event.message ? " · " + event.message : "");
+        if(lookup) finishLookup(lookup.id,null,error);
         reportStatus();schedulePaint();
       };
     }
@@ -465,6 +576,7 @@
     }
     function dirty() {
       cancelLookup();
+      cachedComparison=null;
       key++;configDirty = true;textureValid = false;imageTime = -1;meta = undefined;progress = 0;
       lastDepths = null;solidFrame = null;solidError = removedError = "";error = "";sentTime = -1;
       if (onFrame) onFrame(null);
@@ -472,24 +584,29 @@
       clearTimeout(configureTimer);configureTimer = setTimeout(configure, 35);
       schedulePaint();
     }
-    function finishLookup(id,cut) {
+    function finishLookup(id,result,failure) {
       if(lookup?.id!==id) return;
       const callback=lookup.callback;
+      if(lookup.kind==="find-removal" && !failure) cachedComparison={tool:lookup.tool,result};
       lookup=null;
-      callback(cut);
+      callback(result,failure);
     }
     function cancelLookup() {
       if(!lookup) return;
-      worker?.postMessage({type:"cancel-find",id:lookup.id,key});
+      worker?.postMessage({type:lookup.kind==="find-removal"?"cancel-removal":"cancel-find",id:lookup.id,key});
       lookup=null;
     }
-    function findToolCut(slot,callback) {
+    function lookupTool(kind,slot,callback,onProgress) {
       cancelLookup();
       const tool=Number(slot), id=++nextLookup;
-      lookup={id,callback};
-      if(job?.tools.includes(tool) && Number(tools[tool]?.d)>0) {
+      lookup={id,tool,callback,kind,onProgress};
+      if(kind==="find-removal" && cachedComparison?.tool===tool){
+        const result=cachedComparison.result;
+        setTimeout(()=>finishLookup(id,result),0);
+      } else if(job?.tools.includes(tool) && Number(tools[tool]?.d)>0) {
+        if(kind==="find-removal") cachedComparison=null;
         if(configDirty) configure();
-        if(worker && !configDirty && !error) worker.postMessage({type:"find-cut",id,tool,key});
+        if(worker && !configDirty && !error) worker.postMessage({type:kind,id,tool,key});
         else setTimeout(()=>finishLookup(id,null),0);
       } else setTimeout(()=>finishLookup(id,null),0);
       return ()=>{if(lookup?.id===id)cancelLookup();};
@@ -659,7 +776,8 @@
         } else if(worker)worker.postMessage({type:"active",active:false});
         reportStatus();
       },
-      fit,zoom,findToolCut,
+      fit,zoom,findToolCut:(slot,done)=>lookupTool("find-cut",slot,done),
+      findToolRemoval:(slot,done,onProgress)=>lookupTool("find-removal",slot,done,onProgress),
       destroy() {
         cancelLookup();
         observer.disconnect();clearTimeout(configureTimer);clearTimeout(seekTimer);cancelAnimationFrame(frame);

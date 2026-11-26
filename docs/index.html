@@ -30,10 +30,19 @@
 .source-note{font-size:11px;color:var(--muted);margin:5px 0 0}.source-note:empty{display:none}
 .source-track{overflow-y:clip}.chamfer-fields{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:4px 0 8px 39px}.chamfer-fields label{font-size:11px;color:var(--muted)}.chamfer-fields input{margin-top:3px;padding:4px}
 .cutter-pick{display:flex;gap:5px}.cutter-pick select{flex:1;min-width:0}.cutter-pick button{white-space:nowrap}.tool-profile-box{display:flex;gap:9px;align-items:center;margin:7px 0 0}.tool-profile-box canvas{flex:none;background:#101c24;border:1px solid var(--border);border-radius:4px;width:68px;height:56px}.tool-profile-box span{font:11px/1.5 var(--mono);color:#c9d6d8}.tool-result{font-size:11px;color:var(--muted);margin:5px 0 0}.tool-result:empty{display:none}
+#show-tool-removal{margin-top:7px;background:#25382d;color:#daffb0;border-color:#526a42;font-weight:600}
+#show-tool-removal[aria-pressed=true]{background:#b5ee79;color:#162810;border-color:#b5ee79}
+.removal-key{position:absolute;z-index:2;left:16px;top:60px;max-width:calc(100% - 32px);display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px;background:#152320f5;border:1px solid #577548;border-radius:6px;padding:5px 6px 5px 10px;box-shadow:0 3px 12px #08140f52}
+.removal-key[hidden]{display:none}.removal-label,.removal-actions{display:inline-flex;align-items:center;gap:6px}.removal-label strong{font-size:12px;color:#edfae8}.removal-label i{width:12px;height:12px;border-radius:2px;background:#a8ff33}.removal-actions button{padding:3px 7px;font-size:11px}.removal-actions #removal-close{font:18px/15px sans-serif}
+.removal-key.before .removal-label i{background:#ca8a60}
 </style></head>
 <body><main class="app"><header class="header"><div class="brand"><svg viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M2 9.5 16 2l14 7.5L16 17 2 9.5Z" stroke="#b9e49c" stroke-width="2"/><path d="m3 16 13 7 13-7M3 22.5 16 30l13-7.5" stroke="#b9e49c" stroke-width="2"/></svg><span>Pathscope<small class="brand-sub">NC Viewer</small></span></div><div class="divider"></div><div class="filename" id="filename" title="Current NC file">NC viewer</div><div class="header-actions"><button id="demo-btn" class="flat">Load demo</button><button id="open-btn" class="primary"><svg viewBox="0 0 24 24"><path d="M3 17V6h7l2 2h8v3M3 18l3-7h15l-3 8H3z"/></svg>Open NC file</button></div><input type="file" id="file" accept=".nc,.cnc,.gcode,.gc,.tap,.ngc,.txt,.ncc,.iso,.gco,*/*" hidden></header>
 <section class="work"><div class="center"><div class="viewport" id="viewport"><div id="solid-surface" class="surface" aria-label="Rotatable 3D remaining stock"></div><div id="path-surface" class="surface" aria-label="Interactive toolpath" hidden></div><div id="depth-surface" class="surface" aria-label="Simulated cut depths" hidden></div>
 <div class="viewtop"><div class="hud" role="group" aria-label="View"><button class="on" data-view="solid" title="Rotate and inspect the remaining stock">Solid</button><button data-view="path" title="See programmed motion and entry points">Toolpaths</button><button data-view="depth" title="See remaining material by cut depth from above">Cut depth</button></div><div class="corner-tools"><select id="path-angle" aria-label="Toolpath viewing angle" hidden><option value="iso">3D orbit</option><option value="top">Top</option><option value="front">Front</option></select><button id="zoom-out" class="ico" aria-label="Zoom out">−</button><button id="zoom-in" class="ico" aria-label="Zoom in">+</button><select id="fit" title="Fit view or stock" aria-label="Fit viewport"><option value="">Fit view</option><option value="path">Fit cut area</option><option value="stock">Fit stock</option></select></div></div>
+<div id="removal-key" class="removal-key" hidden>
+<span class="removal-label"><i aria-hidden="true"></i><strong id="removal-label"></strong></span>
+<span class="removal-actions"><button type="button" id="removal-before">Show before</button><button type="button" id="removal-fit">Fit all cuts</button><button type="button" id="removal-close" aria-label="Close cut highlight" title="Close cut highlight">&#215;</button></span>
+</div>
 <div class="viewportfooter"><span class="tag" id="solid-fallback" hidden>3D rendering is unavailable. Showing the cut-depth map.</span><span class="tag" id="view-tag" hidden><i class="dot" id="tool-dot"></i><span id="view-state">Work coordinates · mm</span></span></div><div id="busy" class="busy" role="status"><span>Opening the example program…</span></div><div class="dragmask">Drop an NC file</div></div>
 <div class="sim"><div class="simrow"><h2>Simulation</h2><span class="time"><span id="elapsed">00:00</span> <small>/ <span id="duration">00:00</span></small></span></div><div id="solid-inspect" hidden>
   <div class="solid-layers" role="group" aria-label="Solid layers">
@@ -46,7 +55,7 @@
 </div><div class="scrubber"><div id="rail" class="rail"></div><input type="range" id="progress" min="0" max="1000000" step="1" value="0" aria-label="Simulation progress"></div><div class="transports"><button class="ico" id="prev-step" aria-label="Previous motion" title="Previous motion"><svg viewBox="0 0 24 24"><path d="M6 5v14m12-13-9 6 9 6z"/></svg></button><button class="primary" id="play" aria-label="Play simulation"><span id="play-icon">▶</span><span id="play-text">Play</span></button><button class="ico" id="next-step" aria-label="Next motion" title="Next motion"><svg viewBox="0 0 24 24"><path d="M18 5v14M6 6l9 6-9 6z"/></svg></button><select id="speed" aria-label="Playback speed" title="Playback speed"><option value="1">1×</option><option value="10">10×</option><option value="60" selected>60×</option><option value="300">300×</option><option value="1000">1000×</option></select><button id="to-finished" title="Show the solid material left at the end of the program">Finished part</button><span class="lineinfo" id="lineinfo"></span></div></div></div>
 <aside class="side"><nav class="side-nav"><button id="job-tab" class="on">Job</button><button id="setup-tab">Setup</button></nav><div class="sidebody"><p class="local-note">Your NC files stay in your browser.</p>
 <details id="warnings" class="warn" hidden><summary id="warning-title"></summary><ul id="warning-items"></ul></details>
-<div id="job-panel"><button id="configure-tools" hidden>Set cutter sizes for solid preview</button><section id="tool-inspector" class="group"><h2>Inspect cutter</h2><div class="cutter-pick"><select id="inspect-tool" aria-label="Choose a cutter to inspect"></select><button id="show-tool-cut" title="Find a move where this cutter removes material and zoom in">Show cut</button></div><div class="tool-profile-box"><canvas id="tool-profile" width="102" height="84" aria-label="Side profile of the selected cutter tip"></canvas><span id="tool-dimensions"></span></div><p id="tool-result" class="tool-result" role="status"></p></section><section class="group"><div class="sectionhead"><h2>Operations</h2><small id="op-count"></small></div><div class="ops" id="operations"></div></section>
+<div id="job-panel"><button id="configure-tools" hidden>Set cutter sizes for solid preview</button><section id="tool-inspector" class="group"><h2>Inspect cutter</h2><div class="cutter-pick"><select id="inspect-tool" aria-label="Choose a cutter to inspect"></select><button id="show-tool-cut" title="Find a move where this cutter removes material and zoom in">Show cut</button></div><button type="button" id="show-tool-removal" title="Isolate the surfaces cut by this tool">Highlight cuts</button><div class="tool-profile-box"><canvas id="tool-profile" width="102" height="84" aria-label="Side profile of the selected cutter tip"></canvas><span id="tool-dimensions"></span></div><p id="tool-result" class="tool-result" role="status"></p></section><section class="group"><div class="sectionhead"><h2>Operations</h2><small id="op-count"></small></div><div class="ops" id="operations"></div></section>
 <section class="group"><h2>Jump to move</h2><div class="compact"><select id="stage-select" aria-label="Select individual program stage"></select></div><div class="compact" id="hole-block" style="margin-top:6px"><select id="hole-select" aria-label="Select individual hole"></select></div><div class="jump"><button id="to-stage-end" title="Show the solid material left after the selected stage">After stage</button><button id="to-entry" title="Go to the endpoint of the first spindle-on feed starting into the job">First feed</button><button id="to-contact" title="First estimated tool contact with the configured stock">Stock contact</button></div></section>
 <section class="group"><div class="sectionhead"><h2>Tool position</h2><small>mm</small></div><div class="readout"><div><span>X</span><strong id="px">—</strong></div><div><span>Y</span><strong id="py">—</strong></div><div><span>Z</span><strong id="pz">—</strong></div></div><div class="footer-line" id="motion-data"></div></section>
 <section class="group"><div class="source-head"><h2 id="source-title">G-code</h2><div class="source-jump"><input id="source-line" type="number" min="1" step="1" inputmode="numeric" placeholder="Line #" aria-label="Go to physical line number"><button id="source-go" type="button">Go</button></div></div><div class="linecode" id="linecode" role="listbox" tabindex="0" aria-labelledby="source-title" aria-describedby="source-note" title="Select a line to pause at its first motion. Use the arrow keys to move between lines."></div><p class="source-note" id="source-note" role="status"></p></section>
@@ -622,7 +631,7 @@
 (function () {
   "use strict";
 
-  function buildStockEngine(job, stock, definitions) {
+  function buildStockEngine(job, stock, definitions, detail = false) {
     const {xyz, kind, spindle, tool, count, endTime} = job;
     const {x, y, z, l, w, h} = stock;
     const top = z + h;
@@ -665,7 +674,10 @@
     if (!activeMoves) { xmin = x; ymin = y; xmax = x + l; ymax = y + w; }
     const width = xmax - xmin, height = ymax - ymin;
     // Sample only the region that a cutting tool can touch. Untouched bar is drawn separately.
-    const pitch = Math.max(0.10, width / 600, height / 600, Math.sqrt(width * height / 75000));
+    // Only a requested per-tool comparison pays for the finer grid. This
+    // gives a 0.20 mm edge break several samples on typical desktop CNC stock.
+    const pitch = detail ? Math.max(0.06, width / 3200, height / 3200, Math.sqrt(width * height / 1250000)) :
+      Math.max(0.10, width / 600, height / 600, Math.sqrt(width * height / 75000));
     const nx = Math.max(1, Math.ceil(width / pitch)), ny = Math.max(1, Math.ceil(height / pitch));
     const sx = width / nx, sy = height / ny;
     const factor = 65535 / h;
@@ -673,7 +685,7 @@
     const blank = () => new Uint16Array(nx * ny);
     const clamp = (t, a, b) => Math.max(a, Math.min(b, t));
 
-    function sweep(pixels, i, fraction = 1, from = 0) {
+    function sweep(pixels, i, fraction = 1, from = 0, attribution) {
       if (kind[i] !== 1 || !spindle[i] || fraction <= from) return 0;
       const tip = tools[tool[i]];
       if (!tip) return 0;
@@ -739,6 +751,13 @@
           const removed = baseZ <= z ? 65535 : Math.min(65534, Math.round((top - baseZ) * factor));
           if (removed > pixels[idx]) {
             added += removed - pixels[idx];
+            if (attribution) {
+              if (attribution.selected) {
+                if (!attribution.mask[idx]) attribution.before[idx] = pixels[idx];
+                attribution.mask[idx] = 1;
+                if (attribution.first < 0) attribution.first = idx;
+              } else attribution.mask[idx] = 0;
+            }
             pixels[idx] = removed;
           }
         }
@@ -838,9 +857,103 @@
     let job, engine, stock, pixels, checkpoints, stride, built, mode, timer, request;
     let airSeconds, checkpointAir;
     let lastSolidDepths, meshError, removedError, removedVisible = false, hasRemovedMesh = false;
-    let key = 0, lastProgress = 0, lookup;
+    let key = 0, lastProgress = 0, lookup, definitions, comparison, comparisonTimer;
     const firstCuts = new Map();
 
+    function cancelComparison() {
+      clearTimeout(comparisonTimer); comparisonTimer=undefined; comparison=null;
+    }
+    function finishComparison(result) {
+      const {id}=comparison;
+      cancelComparison();
+      const buffers=[];
+      if (result) {
+        buffers.push(result.depths.buffer);
+        if(result.beforeDepths) buffers.push(result.beforeDepths.buffer);
+        for (const mesh of [result.stockMesh,result.mesh]) {
+          buffers.push(mesh.positions.buffer,mesh.normals.buffer,mesh.indices.buffer);
+        }
+      }
+      self.postMessage({key,type:"tool-removal",id,result},buffers);
+    }
+    function summarizeComparison(c) {
+      const {field,depths,mask,before,units,slot,last,first}=c;
+      if (!units) return null;
+      const meta=field.meta, {nx,sx,sy,xmin,ymin}=meta, unit=stock.h/65535;
+      const top=stock.z+stock.h, bounds=[Infinity,Infinity,Infinity,-Infinity,-Infinity,-Infinity];
+      // Only adjacent uses share a true, unambiguous "before this tool" view.
+      const beforeDepths=c.contiguous ? depths.slice() : null;
+      let count=0, nearest=-1, best=Infinity;
+      const seedX=first%nx, seedY=Math.floor(first/nx);
+      for(let i=0; i<mask.length; i++) {
+        if(!mask[i]) continue;
+        if(beforeDepths) beforeDepths[i]=before[i];
+        count++;
+        const col=i%nx,row=Math.floor(i/nx),x=xmin+sx*col,y=ymin+sy*row;
+        bounds[0]=Math.min(bounds[0],x); bounds[1]=Math.min(bounds[1],y);
+        bounds[2]=Math.min(bounds[2],top-depths[i]*unit);
+        bounds[3]=Math.max(bounds[3],x+sx); bounds[4]=Math.max(bounds[4],y+sy);
+        bounds[5]=Math.max(bounds[5],top-before[i]*unit);
+        const dist=((col-seedX)*sx)**2+((row-seedY)*sy)**2;
+        if(dist<best){best=dist; nearest=i;}
+      }
+      // Some tools make an earlier cut that other tools completely erase,
+      // then return for an air pass. Report the removed volume with no visible faces.
+      const firstCut=count ? {x:xmin+(nearest%nx+.5)*sx,y:ymin+(Math.floor(nearest/nx)+.5)*sy,
+        z:top-depths[nearest]*unit} : null;
+      const stockMesh=buildMesh(stock,meta,depths);
+      const mesh=buildMesh(stock,meta,depths,false,{mask,before});
+      return {tool:slot,count,volumeMM3:units*sx*sy*unit,bounds:count?bounds:null,
+        firstCut,firstTime:c.firstTime,lastTime:job.endTime[last],sx,sy,sz:unit,stock,meta,depths,
+        beforeDepths,mesh,stockMesh};
+    }
+    function pumpComparison() {
+      comparisonTimer=undefined;
+      const c=comparison;
+      if(!c) return;
+      try {
+        const deadline=performance.now()+16;
+        while(c.i<=c.last && performance.now()<deadline){
+          const stop=Math.min(c.last+1,c.i+32);
+          for(;c.i<stop;c.i++){
+            c.selected=job.tool[c.i]===c.slot;
+            const units=c.field.sweep(c.depths,c.i,1,0,c);
+            if(c.selected) c.units+=units;
+          }
+        }
+        if(c.i>c.last) {
+          self.postMessage({key,type:"removal-progress",id:c.id,progress:1});
+          finishComparison(summarizeComparison(c));
+        } else {
+          const now=performance.now();
+          if(now-c.lastReport>=250) {
+            c.lastReport=now;
+            self.postMessage({key,type:"removal-progress",id:c.id,progress:c.i/(c.last+1)});
+          }
+          comparisonTimer=setTimeout(pumpComparison,0);
+        }
+      } catch (error) {
+        const id=c.id; cancelComparison();
+        self.postMessage({key,type:"tool-removal",id,result:null,error:String(error.message||error)});
+      }
+    }
+    function startComparison(id,slot) {
+      cancelComparison();
+      // Compare at the end of the last usage of the requested slot, including
+      // earlier usages and all other tools intervening between them.
+      const last=job.tool.lastIndexOf(slot);
+      comparison={id,slot,last};
+      if(last<0 || !engine.hasTool(slot)){finishComparison(null);return;}
+      const field=buildEngine(job,stock,definitions,true);
+      const depths=field.blank();
+      const firstMove=job.tool.indexOf(slot);
+      let contiguous=true;
+      for(let i=firstMove; i<=last && contiguous; i++) contiguous=job.tool[i]===slot;
+      Object.assign(comparison,{field,depths,mask:new Uint8Array(depths.length),before:field.blank(),
+        contiguous,firstTime:firstMove ? job.endTime[firstMove-1] : 0,
+        units:0,first:-1,selected:false,i:0,lastReport:performance.now()});
+      comparisonTimer=setTimeout(pumpComparison,0);
+    }
     function report() { self.postMessage({key, type:"progress", progress: job.count ? built / job.count : 1}); }
     function resolveLookup() {
       if (!lookup) return;
@@ -947,10 +1060,10 @@
       if (built < job.count && (mode || lookup)) timer = setTimeout(pump, 0);
     }
     self.onmessage = ({data}) => {
-      if (data.type === "job") job = data.job;
+      if (data.type === "job") {cancelComparison(); job = data.job;}
       if (data.type === "configure") {
         clearTimeout(timer); timer = undefined; key = data.key;request = null;
-        firstCuts.clear(); lookup=null;
+        firstCuts.clear(); lookup=null; cancelComparison(); definitions=data.tools;
         stock = data.stock; lastSolidDepths = null; meshError = removedError = ""; hasRemovedMesh = false;
         engine = buildEngine(job, stock, data.tools);
         pixels = engine.blank(); checkpoints = [pixels.slice()];built = 0;
@@ -969,6 +1082,8 @@
       if (data.type === "seek") request = {t:data.t};
       if(data.type==="find-cut" && data.key===key){lookup={id:data.id,tool:data.tool};resolveLookup();}
       if(data.type==="cancel-find" && data.key===key && lookup?.id===data.id) lookup=null;
+      if(data.type==="find-removal" && data.key===key) startComparison(data.id,data.tool);
+      if(data.type==="cancel-removal" && data.key===key && comparison?.id===data.id) cancelComparison();
       if (engine && (mode || lookup) && timer === undefined) timer = setTimeout(pump, 0);
     };
   }
@@ -986,7 +1101,7 @@
     let imageTime = -1, textureValid = false, key = 0, error = "", solidError = "", removedError = "";
     let removedVisible = false;
     let lastDepths = null, solidFrame = null, lastStatus = "", sentTime = -1;
-    let lookup=null, nextLookup=0;
+    let lookup=null, nextLookup=0, cachedComparison=null;
     let zoomFactor = 1, cx = 0, cy = 0, mode = "path", customCamera = false;
     let width = 0, height = 0, scale = 1, lastSeek = 0, frame;
     let cursorX, cursorY;
@@ -1034,6 +1149,11 @@
       worker.onmessage = ({data}) => {
         if (data.key !== key) return;
         if (data.type === "tool-cut") {finishLookup(data.id,data.cut); return;}
+        if (data.type === "tool-removal") {finishLookup(data.id,data.result,data.error); return;}
+        if (data.type === "removal-progress") {
+          if(lookup?.id===data.id) lookup.onProgress?.(data.progress);
+          return;
+        }
         if (data.type === "meta") {
           meta = data.meta;textureValid = false;
           if (!customCamera) fit(mode);
@@ -1059,8 +1179,8 @@
         schedulePaint();
       };
       worker.onerror = event => {
-        if(lookup) finishLookup(lookup.id,null);
         error = "Depth preview unavailable" + (event.message ? " · " + event.message : "");
+        if(lookup) finishLookup(lookup.id,null,error);
         reportStatus();schedulePaint();
       };
     }
@@ -1085,6 +1205,7 @@
     }
     function dirty() {
       cancelLookup();
+      cachedComparison=null;
       key++;configDirty = true;textureValid = false;imageTime = -1;meta = undefined;progress = 0;
       lastDepths = null;solidFrame = null;solidError = removedError = "";error = "";sentTime = -1;
       if (onFrame) onFrame(null);
@@ -1092,24 +1213,29 @@
       clearTimeout(configureTimer);configureTimer = setTimeout(configure, 35);
       schedulePaint();
     }
-    function finishLookup(id,cut) {
+    function finishLookup(id,result,failure) {
       if(lookup?.id!==id) return;
       const callback=lookup.callback;
+      if(lookup.kind==="find-removal" && !failure) cachedComparison={tool:lookup.tool,result};
       lookup=null;
-      callback(cut);
+      callback(result,failure);
     }
     function cancelLookup() {
       if(!lookup) return;
-      worker?.postMessage({type:"cancel-find",id:lookup.id,key});
+      worker?.postMessage({type:lookup.kind==="find-removal"?"cancel-removal":"cancel-find",id:lookup.id,key});
       lookup=null;
     }
-    function findToolCut(slot,callback) {
+    function lookupTool(kind,slot,callback,onProgress) {
       cancelLookup();
       const tool=Number(slot), id=++nextLookup;
-      lookup={id,callback};
-      if(job?.tools.includes(tool) && Number(tools[tool]?.d)>0) {
+      lookup={id,tool,callback,kind,onProgress};
+      if(kind==="find-removal" && cachedComparison?.tool===tool){
+        const result=cachedComparison.result;
+        setTimeout(()=>finishLookup(id,result),0);
+      } else if(job?.tools.includes(tool) && Number(tools[tool]?.d)>0) {
+        if(kind==="find-removal") cachedComparison=null;
         if(configDirty) configure();
-        if(worker && !configDirty && !error) worker.postMessage({type:"find-cut",id,tool,key});
+        if(worker && !configDirty && !error) worker.postMessage({type:kind,id,tool,key});
         else setTimeout(()=>finishLookup(id,null),0);
       } else setTimeout(()=>finishLookup(id,null),0);
       return ()=>{if(lookup?.id===id)cancelLookup();};
@@ -1279,7 +1405,8 @@
         } else if(worker)worker.postMessage({type:"active",active:false});
         reportStatus();
       },
-      fit,zoom,findToolCut,
+      fit,zoom,findToolCut:(slot,done)=>lookupTool("find-cut",slot,done),
+      findToolRemoval:(slot,done,onProgress)=>lookupTool("find-removal",slot,done,onProgress),
       destroy() {
         cancelLookup();
         observer.disconnect();clearTimeout(configureTimer);clearTimeout(seekTimer);cancelAnimationFrame(frame);
@@ -1293,7 +1420,7 @@
 </script>
 <script>/* A boundary mesh of the material below a three-axis milling height field.
    The function is self-contained so it can be installed in the simulation worker. */
-function buildSolidMesh(stock, meta, depths, removed) {
+function buildSolidMesh(stock, meta, depths, removed, selection) {
   "use strict";
   const {x, y, z, l, w, h} = stock;
   const bounds = {min: [x, y, z], max: [x + l, y + w, z + h]};
@@ -1347,7 +1474,7 @@ function buildSolidMesh(stock, meta, depths, removed) {
     for (let i = 0; i < depths.length; i++) if (depths[i]) { disturbed = true; break; }
   }
   if (!disturbed) {
-    if (removed) return result();
+    if (removed || selection) return result();
     plane(x, y, x + l, y + w, top, false); plane(x, y, x + l, y + w, z, true);
     wall(x, y, x + l, y, z, z, top, top, 0, -1);
     wall(x + l, y, x + l, y + w, z, z, top, top, 1, 0);
@@ -1371,10 +1498,19 @@ function buildSolidMesh(stock, meta, depths, removed) {
   const xx = ax.points, yy = ay.points, nx = xx.length - 1, ny = yy.length - 1;
   const count = nx * ny, values = new Uint16Array(count);
   const sampled = new Uint8Array(count);
+  // Selected-tool faces use precisely the same interpolated heights and
+  // topology as the remaining stock. A newly exposed wall can begin partway
+  // down an existing pocket; before[] bounds the portion created by this tool.
+  const selected = selection && new Uint8Array(count);
+  const before = selection && new Uint16Array(count);
   for (let j = 0; j < meta.ny; j++) {
     const k = (j + ay.offset) * nx + ax.offset, i = j * meta.nx;
     values.set(depths.subarray(i, i + meta.nx), k);
     sampled.fill(1, k, k + meta.nx);
+    if (selection) {
+      selected.set(selection.mask.subarray(i, i + meta.nx), k);
+      before.set(selection.before.subarray(i, i + meta.nx), k);
+    }
   }
 
   // Join nearby samples into a continuous surface across shallow slopes,
@@ -1428,6 +1564,7 @@ function buildSolidMesh(stock, meta, depths, removed) {
   }
   for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
     const cell = j * nx + i, k = cell * 4;
+    if (selected && !selected[cell]) continue;
     // Along a smooth cut entry, the interpolated surface can slope toward
     // the first cut cell from a sample that was exactly at stock top.
     if (values[cell] === through && corners[k] === through && corners[k+1] === through &&
@@ -1460,35 +1597,53 @@ function buildSolidMesh(stock, meta, depths, removed) {
       plane(xx[i], yy[j], xx[endX], yy[endY], underside ? z : height(key), underside);
     }
   }
-  mergePlanes(flat, false); mergePlanes(bottom, true);
+  mergePlanes(flat, false);
+  if (!selected) mergePlanes(bottom, true);
 
   // Connect the two top edges at sharp changes, holes and outer boundaries.
   // If two piecewise heights cross, split at the crossing before orienting.
-  function seam(x0, y0, x1, y1, a, b, c, d, vx, vy) {
+  function seam(x0, y0, x1, y1, a, b, c, d, vx, vy, cellA, cellC) {
     const da = c - a, db = d - b;
     if (!da && !db) return;
     if (da * db < 0) {
       const t = da / (da - db), mid = a + (b - a) * t;
       const px = x0 + (x1 - x0) * t, py = y0 + (y1 - y0) * t;
-      seam(x0, y0, px, py, a, mid, c, mid, vx, vy);
-      seam(px, py, x1, y1, mid, b, mid, d, vx, vy);
+      seam(x0, y0, px, py, a, mid, c, mid, vx, vy, cellA, cellC);
+      seam(px, py, x1, y1, mid, b, mid, d, vx, vy, cellA, cellC);
     } else if (da > 0 || db > 0) {
-      wall(x0, y0, x1, y1, height(c), height(d), height(a), height(b), vx, vy);
+      exposedWall(x0, y0, x1, y1, height(c), height(d), height(a), height(b), vx, vy, cellC);
     } else {
-      wall(x1, y1, x0, y0, height(b), height(a), height(d), height(c), -vx, -vy);
+      exposedWall(x1, y1, x0, y0, height(b), height(a), height(d), height(c), -vx, -vy, cellA);
+    }
+  }
+  function exposedWall(x0, y0, x1, y1, low0, low1, high0, high1, vx, vy, deeper) {
+    if (!selected) { wall(x0,y0,x1,y1,low0,low1,high0,high1,vx,vy); return; }
+    if (!selected[deeper]) return;
+    const ceiling = height(before[deeper]);
+    const breaks = [0, 1];
+    for (const [a,b] of [[low0,low1],[high0,high1]]) {
+      if ((a-ceiling)*(b-ceiling)<0) breaks.push((ceiling-a)/(b-a));
+    }
+    breaks.sort((a,b)=>a-b);
+    for (let i=1; i<breaks.length; i++) {
+      const a=breaks[i-1], b=breaks[i], l0=low0+a*(low1-low0), l1=low0+b*(low1-low0);
+      if (a===b || (l0+l1)/2>=ceiling) continue;
+      wall(x0+a*(x1-x0),y0+a*(y1-y0),x0+b*(x1-x0),y0+b*(y1-y0),
+        l0,l1,Math.max(l0,Math.min(ceiling,high0+a*(high1-high0))),
+        Math.max(l1,Math.min(ceiling,high0+b*(high1-high0))),vx,vy);
     }
   }
   for (let j = 0; j < ny; j++) for (let i = 0; i <= nx; i++) {
     const left = 4 * (j * nx + i - 1), right = left + 4;
     seam(xx[i], yy[j], xx[i], yy[j + 1], i ? corners[left + 1] : through,
       i ? corners[left + 2] : through, i < nx ? corners[right] : through,
-      i < nx ? corners[right + 3] : through, 1, 0);
+      i < nx ? corners[right + 3] : through, 1, 0, i ? left/4 : -1, i < nx ? right/4 : -1);
   }
   for (let j = 0; j <= ny; j++) for (let i = 0; i < nx; i++) {
     const north = 4 * (j * nx + i), south = north - 4 * nx;
     seam(xx[i + 1], yy[j], xx[i], yy[j], j ? corners[south + 2] : through,
       j ? corners[south + 3] : through, j < ny ? corners[north + 1] : through,
-      j < ny ? corners[north] : through, 0, 1);
+      j < ny ? corners[north] : through, 0, 1, j ? south/4 : -1, j < ny ? north/4 : -1);
   }
   if (removed) {
     const mirror = z + top;
@@ -1604,7 +1759,8 @@ if (typeof module !== "undefined" && module.exports) module.exports = {buildSoli
       'vec2 uv=(xy-crop.xy)/crop.zw; if(any(lessThan(uv,vec2(0.)))||any(greaterThan(uv,vec2(1.))))return bottomHeight.x+bottomHeight.y;'+
       'return bottomHeight.x+bottomHeight.y*(1.-'+sample+'(field,uv).r);}\n'+
       'float blocker(vec2 shift,float reach){return clamp((heightAt(world.xy+shift)-world.z)/reach,0.,1.);}\n'+
-      'void main(){vec3 n=normalize(normal);if(material>1.5){'+(version2?'outColor':'gl_FragColor')+'=vec4(.36,.82,.98,.11);return;}'+
+      'void main(){vec3 n=normalize(normal);if(material>2.5){float k=.86+.14*max(dot(n,light1),0.);'+(version2?'outColor':'gl_FragColor')+'=vec4(k*vec3(.66,1.,.20),1.);return;}'+
+      'if(material>1.5){'+(version2?'outColor':'gl_FragColor')+'=vec4(.36,.82,.98,.11);return;}'+
       'if(material>.5){float k=.54+.44*max(dot(n,light1),0.)+.15*max(dot(n,light2),0.);'+(version2?'outColor':'gl_FragColor')+'=vec4(k*cutterTint,1.);return;}float high=clamp((world.z-bottomHeight.x)/bottomHeight.y,0.,1.);'+
       'float reach=clamp(bottomHeight.y*.13,.20,1.10);vec2 a=vec2(reach,0.),b=a.yx;'+
       'float ao=relief*(blocker(a,reach)+blocker(-a,reach)+blocker(b,reach)+blocker(-b,reach))*.25;'+
@@ -1636,6 +1792,7 @@ if (typeof module !== "undefined" && module.exports) module.exports = {buildSoli
     const buffers=[gl.createBuffer(),gl.createBuffer(),gl.createBuffer()];
     const toolBuffers=[gl.createBuffer(),gl.createBuffer(),gl.createBuffer()];
     const ghostBuffers=[gl.createBuffer(),gl.createBuffer(),gl.createBuffer()];
+    const highlightBuffers=[gl.createBuffer(),gl.createBuffer(),gl.createBuffer()];
     const tex=gl.createTexture(), A=['aPosition','aNormal'].map(n=>gl.getAttribLocation(pg,n)), u={};
     for (const name of ['center','rowX','rowY','rowZ','pan','eye','light1','light2','crop','stockRect','bottomHeight','relief','field','material','origin','cutterTint'])
       u[name]=gl.getUniformLocation(pg,name);
@@ -1643,7 +1800,7 @@ if (typeof module !== "undefined" && module.exports) module.exports = {buildSoli
     gl.bindTexture(gl.TEXTURE_2D,tex);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);gl.pixelStorei(gl.UNPACK_ALIGNMENT,1);
-    let uploaded, uploadedMesh, uploadedCutter, uploadedGhost, tint=new Uint8Array(1);
+    let uploaded, uploadedMesh, uploadedCutter, uploadedGhost, uploadedHighlight, tint=new Uint8Array(1);
     function upload(mesh, target) {
       for(const [i,arr] of [mesh.positions,mesh.normals].entries()){
         gl.bindBuffer(gl.ARRAY_BUFFER,target[i]);gl.bufferData(gl.ARRAY_BUFFER,arr,gl.DYNAMIC_DRAW);
@@ -1679,6 +1836,16 @@ if (typeof module !== "undefined" && module.exports) module.exports = {buildSoli
       gl.uniform3fv(u.eye,eye);gl.uniform3fv(u.light1,lamp);gl.uniform3fv(u.light2,fill);
       gl.uniform4f(u.stockRect,stock.x,stock.y,stock.x+stock.l,stock.y+stock.w);gl.uniform2f(u.bottomHeight,stock.z,stock.h);
       gl.drawElements(gl.TRIANGLES,mesh.indices.length,gl.UNSIGNED_INT,0);
+      const highlight=frame.highlightMesh;
+      if(highlight?.indices.length){
+        if(uploadedHighlight!==highlight){upload(highlight,highlightBuffers);uploadedHighlight=highlight;}
+        use(highlightBuffers);gl.uniform1f(u.material,3);
+        // The overlay reuses stock faces. Bias their depth only for coplanar
+        // rasterization so the surrounding walls still occlude hidden faces.
+        gl.enable(gl.POLYGON_OFFSET_FILL);gl.polygonOffset(-1,-1);
+        gl.drawElements(gl.TRIANGLES,highlight.indices.length,gl.UNSIGNED_INT,0);
+        gl.disable(gl.POLYGON_OFFSET_FILL);
+      }
       if(cutter?.mesh.indices.length){
         if(uploadedCutter!==cutter.mesh){upload(cutter.mesh,toolBuffers);uploadedCutter=cutter.mesh;}
         use(toolBuffers);gl.uniform1f(u.material,1);gl.uniform3fv(u.origin,cutter.origin);
@@ -1698,7 +1865,7 @@ if (typeof module !== "undefined" && module.exports) module.exports = {buildSoli
         gl.depthMask(true);gl.disable(gl.BLEND);gl.uniform1f(u.material,0);
       }
     }
-    return {draw,release:()=>{uploaded=uploadedMesh=uploadedGhost=uploadedCutter=undefined;},destroy:()=>{[...buffers,...ghostBuffers,...toolBuffers].forEach(b=>gl.deleteBuffer(b));gl.deleteTexture(tex);gl.deleteProgram(pg);}};
+    return {draw,release:()=>{uploaded=uploadedMesh=uploadedGhost=uploadedCutter=uploadedHighlight=undefined;},destroy:()=>{[...buffers,...ghostBuffers,...toolBuffers,...highlightBuffers].forEach(b=>gl.deleteBuffer(b));gl.deleteTexture(tex);gl.deleteProgram(pg);}};
   }
 
   /* Painter sorting incorrectly fills through-holes in a tilted bar. The software fallback
@@ -1709,11 +1876,12 @@ if (typeof module !== "undefined" && module.exports) module.exports = {buildSoli
     pixels.fill(0);zbuffer.fill(-Infinity);
     if(!frame?.mesh)return;
     paint(frame.mesh,'stock',reusable);
+    if(frame.highlightMesh)paint(frame.highlightMesh,'highlight',reusable.highlight??={});
     if(cutter)paint(cutter.mesh,'cutter',reusable.cutter??={});
     if(showRemoved&&frame.removedMesh)paint(frame.removedMesh,'ghost',reusable.ghost??={});
 
     function paint(mesh,material,cache) {
-      const ghost=material==='ghost', tool=material==='cutter', origin=tool?cutter.origin:[0,0,0];
+      const ghost=material==='ghost', tool=material==='cutter', highlight=material==='highlight', origin=tool?cutter.origin:[0,0,0];
       const {positions:p,normals:n,indices}=mesh;
       if(!indices.length)return;
       if(!cache.s||cache.s.length!==p.length){cache.s=new Float32Array(p.length);cache.light=ghost?null:new Float32Array(p.length);}
@@ -1734,6 +1902,11 @@ if (typeof module !== "undefined" && module.exports) module.exports = {buildSoli
         if(ghost)continue;
         const a=n[k],b=n[k+1],c=n[k+2];
         const key=Math.max(0,a*lamp[0]+b*lamp[1]+c*lamp[2]),soft=Math.max(0,a*fill[0]+b*fill[1]+c*fill[2]);
+        if(highlight){
+          const light=255*(.86+.14*key);
+          colors[k]=.66*light;colors[k+1]=light;colors[k+2]=.20*light;
+          continue;
+        }
         if(tool){
           const bright=.54+.44*key+.15*soft;
           for(let ch=0;ch<3;ch++)colors[k+ch]=255*clamp(bright*cutter.tint[ch],0,1);
@@ -1783,7 +1956,7 @@ if (typeof module !== "undefined" && module.exports) module.exports = {buildSoli
               rgba[ptr+3]=255*out;
               continue;
             }
-            if(depth<zbuffer[at])continue;
+            if(depth+(highlight?1e-5:0)<zbuffer[at])continue;
             zbuffer[at]=depth;
             const red=(r0+u*dr1+v*dr2+.5)|0,green=(g0+u*dg1+v*dg2+.5)|0,blue=(blue0+u*db1+v*db2+.5)|0;
             pixels[at]=(255<<24)|(blue<<16)|(green<<8)|red;
@@ -1843,13 +2016,37 @@ if (typeof module !== "undefined" && module.exports) module.exports = {buildSoli
       this.reset();this.focus=null;this.schedule();
     }
     setJob(job){this.activeJob=job;this.reset();this.requested=0;this.fit('path');}
-    reset(){this.frame=null;this.meta=null;this.notice='';this.output?.release();this.schedule();}
+    reset(){this.frame=null;this.comparison=null;this.meta=null;this.notice='';this.output?.release();this.schedule();}
     setFrame(frame){
       if(!frame){this.reset();return;}if(!frame.mesh)return;
       this.frame=frame;this.setMeta(frame.meta);
       this.schedule();
     }
     setRemovedVisible(yes){if(this.showRemoved!==!!yes){this.showRemoved=!!yes;this.schedule();}}
+    setComparison(result,before=false){
+      if(before && !result.beforeMesh) result.beforeMesh=globalThis.buildSolidMesh(result.stock,result.meta,result.beforeDepths);
+      this.comparison=result?{
+        t:before?result.firstTime:result.lastTime,mesh:before?result.beforeMesh:result.stockMesh,
+        highlightMesh:before?null:result.mesh,meta:result.meta,depths:before?result.beforeDepths:result.depths,
+        before
+      }:null;
+      this.schedule();
+    }
+    focusRemoval(result,diameter,all=false){
+      const b=result.bounds,point=result.firstCut;
+      this.elevation=1.12;this.yaw=-.42;this.factor=1;this.pan=[0,0];this.fitAxes=basis(this.yaw,this.elevation);
+      // A repeated operation can span the whole bar. Start on one cut at a
+      // scale where its edge is legible, and keep the complete footprint available.
+      const radius=Math.max(diameter*2.8,Math.max(result.sx,result.sy)*14);
+      const pad=Math.max(radius*.28,.4);
+      if(all || !point || Math.max(b[3]-b[0],b[4]-b[1])<radius*2){
+        this.focus=[b[0]-pad,b[1]-pad,b[2]-pad,b[3]+pad,b[4]+pad,b[5]+pad];
+      }else{
+        this.focus=[point.x-radius,point.y-radius,point.z-radius*.35,
+          point.x+radius,point.y+radius,point.z+radius*.35];
+      }
+      this.schedule();
+    }
     setCutterVisible(yes){if(this.showCutter!==!!yes){this.showCutter=!!yes;this.schedule();}}
     displayedCutter(frame){
       const c=frame?.cutter;
@@ -1907,6 +2104,10 @@ if (typeof module !== "undefined" && module.exports) module.exports = {buildSoli
     }
     updateHud(){
       if(!this.status||!this.active)return;
+      if(this.comparison){
+        this.status.textContent=(this.comparison.before?'Stock before the selected tool at ':'Cut surfaces after the selected tool at ')+clock(this.comparison.t);
+        return;
+      }
       const f=this.requested===0?this.blank:(this.frame||this.blank), shown=f.t??0,m=this.meta;
       let msg;
       if(!this.available)msg='3D rendering unavailable. Choose Cut depth.';
@@ -1940,14 +2141,14 @@ if (typeof module !== "undefined" && module.exports) module.exports = {buildSoli
       const d=this.usingCPU?Math.min(dpr,1.1,Math.sqrt(680000/(cam.w*cam.h))):Math.min(dpr,2);
       const w=Math.max(1,Math.round(cam.w*d)),h=Math.max(1,Math.round(cam.h*d));
       if(this.canvas.width!==w||this.canvas.height!==h){this.canvas.width=w;this.canvas.height=h;}
-      const frame=this.requested===0?(this.frame?.t===0?this.frame:this.blank):(this.frame||this.blank);
-      const cutter=this.displayedCutter(frame);
+      const frame=this.comparison||(this.requested===0?(this.frame?.t===0?this.frame:this.blank):(this.frame||this.blank));
+      const cutter=this.comparison?null:this.displayedCutter(frame);
       if(cutter){
         const tip=cutter.origin.map((v,i)=>v-cam.center[i]);
         const span=cutter.mesh.bounds?.max||[0,0,frame.cutter.d*8];
         cam.range=Math.max(cam.range,Math.abs(dot(tip,cam.eye))+Math.hypot(...span)+1);
       }
-      this.output?.draw(frame,cam,this.stock,this.showRemoved,cutter);this.drawAxes(cam);this.updateHud();
+      this.output?.draw(frame,cam,this.stock,!this.comparison&&this.showRemoved,cutter);this.drawAxes(cam);this.updateHud();
     }
     schedule(){if(this.active&&!this.raf)this.raf=requestAnimationFrame(()=>{this.raf=0;this.draw();});}
     bindInput(){
@@ -2152,6 +2353,7 @@ if (typeof module !== "undefined" && module.exports) module.exports = {buildSoli
   const flagNames={rapid:'Rapids',future:'Future paths',stock:'Stock',grid:'Grid',markers:'Entry markers',tool:'Cutter'};
   let job=null, source='', ticket=0, playing=false, lastTick=0, time=0, view='solid', seq=[], stageNodes=[], contact=null, entry=null, stageId=-1, stock={}, cutTools={}, dragCount=0, loadState=false;
   let stockFrame=null, activeSlot=null, stopLookup=null, lookupId=0, inspectedTime=null;
+  let comparison=null,showBefore=false,showAllCuts=false,pendingComparison=false;
   const sourceList=NCSourceList({viewport:by('linecode'),input:by('source-line'),go:by('source-go'),note:by('source-note'),
     onSeek:(seconds,line)=>{pause();seek(seconds,line);}});
   function notice(title,msg) { by('msgtitle').textContent=title; by('msgtext').textContent=msg; by('msg').showModal(); }
@@ -2218,14 +2420,14 @@ if (typeof module !== "undefined" && module.exports) module.exports = {buildSoli
     by('dia-'+missing[0]).focus();
   }
   function setView(name) {
-    if(stopLookup)cancelToolLookup();
+    if(stopLookup || (comparison && name!=='solid'))cancelToolLookup();
     if(name!=='path' && entry && !hasSizedTool()){
       configureMissingTools();
       return;
     }
     view=name==='solid'&&!hasSolid?'depth':name;
     by('solid-surface').hidden=view!=='solid';
-    by('solid-inspect').hidden=view!=='solid';
+    by('solid-inspect').hidden=view!=='solid'||Boolean(comparison);
     by('depth-surface').hidden=view!=='depth';
     by('path-surface').hidden=view!=='path';
     by('view-tag').hidden=view!=='path';
@@ -2249,7 +2451,22 @@ if (typeof module !== "undefined" && module.exports) module.exports = {buildSoli
   function toolData(j){const t=j.tool;return j.tools.length?j.tools:(t.length?[t[0]]:[]);}
   function cancelToolLookup(){
     lookupId++;stopLookup?.();stopLookup=null;inspectedTime=null;
+    pendingComparison=false;
+    if(comparison){
+      comparison=null;solid.setComparison(null);
+      by('solid-inspect').hidden=view!=='solid';
+    }
+    by('removal-key').hidden=true;
+    by('show-tool-removal').setAttribute('aria-pressed','false');
     by('tool-result').textContent='';by('show-tool-cut').disabled=by('inspect-tool').disabled;
+    updateRemovalButton();
+  }
+  function updateRemovalButton(){
+    const def=cutTools[Number(by('inspect-tool').value)];
+    const btn=by('show-tool-removal');
+    btn.hidden=!hasSolid||!(def?.d>0);
+    btn.textContent=pendingComparison?'Cancel highlight':comparison?'Close highlight':
+      def?.shape==='chamfer'?'Highlight chamfers':'Highlight cuts';
   }
   function drawToolProfile(def){
     const canvas=by('tool-profile'),ctx=canvas.getContext?.('2d');
@@ -2278,6 +2495,7 @@ if (typeof module !== "undefined" && module.exports) module.exports = {buildSoli
     if(def?.shape==='drill' && def.d>0)details.push('118° included');
     by('tool-dimensions').textContent=details.join(' · ');
     by('show-tool-cut').textContent=def?.d>0?'Show cut':'Set dimensions';
+    updateRemovalButton();
     drawToolProfile(def);
   }
   function setToolInspector(){
@@ -2304,6 +2522,46 @@ if (typeof module !== "undefined" && module.exports) module.exports = {buildSoli
       if(hasSolid)solid.focusCutter({...def,x:result.x,y:result.y,z:result.z});
       by('tool-result').textContent='Cutting on line '+job.line[result.move].toLocaleString()+' at '+clock(result.t)+'.';
     });
+  }
+  function highlightTool(){
+    if(!hasSolid || !job?.count)return;
+    if(pendingComparison || comparison){cancelToolLookup();return;}
+    const slot=Number(by('inspect-tool').value),def=cutTools[slot];
+    if(!(def?.d>0))return;
+    pause();cancelToolLookup();setView('solid');
+    pendingComparison=true;updateRemovalButton();
+    const id=lookupId;
+    const status='Comparing stock for '+toolName(slot);
+    by('tool-result').textContent=status+'…';
+    stopLookup=cut.findToolRemoval(slot,(result,error)=>{
+      if(id!==lookupId)return;
+      stopLookup=null;pendingComparison=false;updateRemovalButton();
+      if(!result || !result.count){
+        by('tool-result').textContent=error?'Could not compare stock: '+error:result?.volumeMM3>0?
+          toolName(slot)+' removed material that another tool subsequently cut away.':
+          'No exposed cut surfaces found for '+toolName(slot)+' at this stock resolution.';
+        return;
+      }
+      comparison=result;showAllCuts=false;setComparisonTime(false);solid.focusRemoval(result,def.d);
+      by('solid-inspect').hidden=true;
+      by('removal-key').hidden=false;by('removal-fit').textContent='Fit all cuts';
+      by('removal-before').hidden=!result.beforeDepths;
+      by('show-tool-removal').setAttribute('aria-pressed','true');
+      by('tool-result').textContent=toolName(slot)+' removed an estimated '+
+        result.volumeMM3.toLocaleString(undefined,{maximumSignificantDigits:4})+' mm³. Lime marks its exposed cut surfaces.';
+    },fraction=>{
+      if(id===lookupId)by('tool-result').textContent=status+' · '+Math.floor(fraction*100)+'%';
+    });
+  }
+  function setComparisonTime(before){
+    showBefore=before;
+    inspectedTime=before?comparison.firstTime:comparison.lastTime;
+    seek(inspectedTime);showProfile(comparison.tool);
+    const name=comparison.tool?'T'+comparison.tool:'unnumbered tool';
+    by('removal-label').textContent=(before?'Stock before ':'Surfaces cut by ')+name;
+    by('removal-key').classList.toggle('before',before);
+    by('removal-before').textContent=before?'Show after':'Show before';
+    solid.setComparison(comparison,before);
   }
   function seek(value,chosenLine) {
     if(stopLookup || (inspectedTime!==null && value!==inspectedTime))cancelToolLookup();
@@ -2571,6 +2829,14 @@ if (typeof module !== "undefined" && module.exports) module.exports = {buildSoli
   function loadFile(f){if(f)load(()=>f.text(),f.name);}
   on('inspect-tool','change',()=>{pause();cancelToolLookup();showProfile(Number(by('inspect-tool').value));});
   on('show-tool-cut','click',inspectCut);
+  on('show-tool-removal','click',highlightTool);
+  on('removal-close','click',cancelToolLookup);
+  on('removal-before','click',()=>{if(comparison?.beforeDepths)setComparisonTime(!showBefore);});
+  on('removal-fit','click',()=>{
+    if(!comparison)return;
+    showAllCuts=!showAllCuts;solid.focusRemoval(comparison,cutTools[comparison.tool].d,showAllCuts);
+    by('removal-fit').textContent=showAllCuts?'Zoom to detail':'Fit all cuts';
+  });
   makeFields(); on('close-msg','click',()=>by('msg').close());on('open-btn','click',()=>by('file').click());on('file','change',e=>{loadFile(e.target.files[0]);e.target.value='';});on('demo-btn','click',sample);on('job-tab','click',()=>setTab(false));on('setup-tab','click',()=>setTab(true));on('configure-tools','click',configureMissingTools);
   on('play','click',play);on('prev-step','click',()=>step(false));on('next-step','click',()=>step(true));on('progress','input',()=>{if(job)jump(job.duration*Number(by('progress').value)/1000000);});on('apply','click',applyConfig);
   function jumpInView(target,seconds){jump(seconds);if(view!==target)setView(target);}

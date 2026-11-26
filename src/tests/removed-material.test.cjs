@@ -1,6 +1,19 @@
 const assert = require('node:assert/strict');
 const {buildSolidMesh} = require('../solid-mesh');
-const {rasterize, basis, gpu} = require('../solid-render');
+const {NCSolidRenderer, rasterize, basis, gpu} = require('../solid-render');
+require('../solid-cutter');
+
+// Finished jobs retain the last cutter. Paused seeks do not display a cutter
+// on a stale stock frame while the worker is moving to a new time or tool.
+const inspector=Object.create(NCSolidRenderer.prototype);
+Object.assign(inspector,{showCutter:true,yaw:0,elevation:.5,requested:3,requestedTool:6,waitExact:true,schedule(){}});
+const chamfer={tool:6,d:4,angle:90,tip:.4,shape:'chamfer',x:2,y:3,z:-1,state:'complete'};
+assert.ok(inspector.displayedCutter({t:3,cutter:chamfer}));
+assert.equal(inspector.displayedCutter({t:1,cutter:chamfer}),null);
+assert.equal(inspector.displayedCutter({t:3,cutter:{...chamfer,tool:4}}),null);
+inspector.focusCutter(chamfer);
+assert.ok(inspector.focus[0]<chamfer.x && inspector.focus[3]>chamfer.x);
+assert.ok(inspector.focus[5]>chamfer.z+inspector.toolShape.bounds.max[2]);
 
 const stock = {x:-1,y:2,z:-4,l:5,w:4,h:4};
 const meta = {xmin:0,ymin:2,xmax:2,ymax:4,nx:2,ny:2,sx:1,sy:1};

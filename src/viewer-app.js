@@ -14,6 +14,7 @@
   const flags={rapid:true,future:true,stock:true,grid:true,markers:true,tool:true};
   const flagNames={rapid:'Rapids',future:'Future paths',stock:'Stock',grid:'Grid',markers:'Entry markers',tool:'Cutter'};
   let job=null, source='', ticket=0, playing=false, lastTick=0, time=0, view='solid', seq=[], stageNodes=[], contact=null, entry=null, stageId=-1, stock={}, cutTools={}, dragCount=0, loadState=false;
+  let stockFrame=null, activeSlot=null, stopLookup=null, lookupId=0, inspectedTime=null;
   const sourceList=NCSourceList({viewport:by('linecode'),input:by('source-line'),go:by('source-go'),note:by('source-note'),
     onSeek:(seconds,line)=>{pause();seek(seconds,line);}});
   function notice(title,msg) { by('msgtitle').textContent=title; by('msgtext').textContent=msg; by('msg').showModal(); }
@@ -27,8 +28,9 @@
   const hasSolid=Boolean(solid && solid.available!==false);
   const cut=new NCCutMap(by('depth-surface'),{
     onFrame:frame=>{
+      stockFrame=frame;
       if(hasSolid)solid.setFrame(frame);
-      updateMaterialReadout(frame);
+      updateMaterialReadout();
     },
     onStatus:message=>{if(hasSolid)solid.setStatus(message);}
   });
@@ -36,14 +38,20 @@
     cutting:'Cutting material',air:'Feeding in air',rapid:'Rapid travel',dwell:'Dwell',
     'spindle-off':'Spindle off',unknown:'Tool size unknown',ready:'Ready',complete:'Finished'
   };
-  function updateMaterialReadout(frame){
+  function toolName(slot){
+    const def=cutTools[slot], name=slot?'T'+slot:'Unnumbered tool';
+    const shape=def?.d>0 || def?.shape==='chamfer' ? {flat:'Flat end mill',ball:'Ball nose',drill:'Twist drill',chamfer:'Chamfer mill'}[def.shape] : '';
+    return shape?name+' '+shape:name;
+  }
+  function updateMaterialReadout(){
+    const frame=stockFrame, t=frame?.t;
+    const current=activeSlot!==null && frame?.cutter?.tool===activeSlot && (playing || Math.abs(t-time)<1e-5);
     const state=frame?.cutter?.state;
-    const tool=frame?.cutter?.tool;
     const engagement=by('solid-engagement');
-    engagement.dataset.state=state||'';
-    engagement.textContent=(tool?'T'+tool+' · ':'')+(engagementLabels[state]||'');
-    const volume=frame?.removal?.totalMM3;
-    const air=frame?.removal?.airFeedSeconds;
+    engagement.dataset.state=current?state:'';
+    engagement.textContent=activeSlot===null?'':toolName(activeSlot)+' · '+(current?engagementLabels[state]:'Updating stock');
+    const volume=current?frame.removal?.totalMM3:null;
+    const air=current?frame.removal?.airFeedSeconds:null;
     by('solid-removed-volume').textContent=Number.isFinite(volume)?volume.toLocaleString(undefined,{maximumFractionDigits:1})+' mm³':'—';
     by('solid-air-time').textContent=Number.isFinite(air)?clock(air):'—';
   }
@@ -59,7 +67,7 @@
   on('show-cutter','change',updateLayers);
   updateLayers();
   function updateViewTime(){
-    if(view==='solid')solid.setTime(time);
+    if(view==='solid')solid.setTime(time,activeSlot,playing);
     if(view==='path')path.setTime(time);
     else cut.setTime(time);
   }
@@ -73,6 +81,7 @@
     by('dia-'+missing[0]).focus();
   }
   function setView(name) {
+    if(stopLookup)cancelToolLookup();
     if(name!=='path' && entry && !hasSizedTool()){
       configureMissingTools();
       return;
@@ -101,7 +110,66 @@
   function startSec(i){return i>0?job.endTime[i-1]:0;}
   function point(i,f){const p=6*i;return [0,1,2].map(k=>job.xyz[p+k]+(job.xyz[p+k+3]-job.xyz[p+k])*f);}
   function toolData(j){const t=j.tool;return j.tools.length?j.tools:(t.length?[t[0]]:[]);}
+  function cancelToolLookup(){
+    lookupId++;stopLookup?.();stopLookup=null;inspectedTime=null;
+    by('tool-result').textContent='';by('show-tool-cut').disabled=by('inspect-tool').disabled;
+  }
+  function drawToolProfile(def){
+    const canvas=by('tool-profile'),ctx=canvas.getContext?.('2d');
+    if(!ctx)return;
+    const w=canvas.width,h=canvas.height;ctx.clearRect(0,0,w,h);
+    const mesh=globalThis.buildCutterMesh?.(def);
+    if(!mesh)return;
+    // Draw the side silhouette of the same tip envelope used by the 3D renderer.
+    const radii=new Map(),r=def.d/2;
+    for(let i=0;i<mesh.positions.length;i+=3){
+      const p=mesh.positions,z=p[i+2];radii.set(z,Math.max(radii.get(z)||0,Math.hypot(p[i],p[i+1])));
+    }
+    const rings=Array.from(radii).sort((a,b)=>a[0]-b[0]);
+    const shoulder=rings.find(v=>v[1]>=r*(1-1e-5))?.[0]??0;
+    const top=shoulder+1.3*r,profile=rings.filter(v=>v[0]<top);profile.push([top,r]);
+    const scale=Math.min((w-22)/def.d,(h-12)/top),x=w/2,y=h-6;
+    ctx.beginPath();ctx.moveTo(x-r*scale,y-top*scale);
+    for(let i=profile.length-1;i>=0;i--)ctx.lineTo(x-profile[i][1]*scale,y-profile[i][0]*scale);
+    for(const [z,radius] of profile)ctx.lineTo(x+radius*scale,y-z*scale);
+    ctx.closePath();ctx.fillStyle='#598d92';ctx.fill();ctx.strokeStyle='#c7f3e7';ctx.lineWidth=1.5;ctx.stroke();
+  }
+  function showProfile(slot){
+    const def=cutTools[slot];by('inspect-tool').value=String(slot);
+    const details=def?.d>0?['Ø'+def.d+' mm']:['Cutter dimensions needed'];
+    if(def?.shape==='chamfer' && def.d>0)details.push(def.angle+'° included','Ø'+def.tip+' mm tip');
+    if(def?.shape==='drill' && def.d>0)details.push('118° included');
+    by('tool-dimensions').textContent=details.join(' · ');
+    by('show-tool-cut').textContent=def?.d>0?'Show cut':'Set dimensions';
+    drawToolProfile(def);
+  }
+  function setToolInspector(){
+    cancelToolLookup();
+    const selector=by('inspect-tool'),slots=toolData(job);
+    selector.replaceChildren(...slots.map(n=>option(toolName(n),n)));
+    selector.disabled=by('show-tool-cut').disabled=!slots.length;by('tool-inspector').hidden=!slots.length;
+    if(slots.length)showProfile(slots.includes(activeSlot)?activeSlot:slots[0]);
+  }
+  function inspectCut(){
+    if(!job?.count)return;
+    pause();cancelToolLookup();
+    const slot=Number(by('inspect-tool').value),def=cutTools[slot];
+    if(!(def?.d>0)){setTab(true);by('dia-'+slot).focus();return;}
+    const id=lookupId;
+    by('show-tool-cut').disabled=true;
+    by('tool-result').textContent='Finding material removed by '+toolName(slot)+'…';
+    stopLookup=cut.findToolCut(slot,result=>{
+      if(id!==lookupId)return;
+      stopLookup=null;by('show-tool-cut').disabled=false;
+      if(!result){by('tool-result').textContent='No sampled material removal for '+toolName(slot)+' with this stock and cutter.';return;}
+      showCutter.checked=true;updateLayers();
+      seek(result.t);setView('solid');inspectedTime=result.t;
+      if(hasSolid)solid.focusCutter({...def,x:result.x,y:result.y,z:result.z});
+      by('tool-result').textContent='Cutting on line '+job.line[result.move].toLocaleString()+' at '+clock(result.t)+'.';
+    });
+  }
   function seek(value,chosenLine) {
+    if(stopLookup || (inspectedTime!==null && value!==inspectedTime))cancelToolLookup();
     if(!job?.count){
       time=0;by('progress').value='0';by('progress').setAttribute('aria-valuetext','No motions');
       by('rail').style.setProperty('--done','0%');by('elapsed').textContent='00:00';
@@ -113,6 +181,8 @@
     by('progress').value=String(Math.round(ratio*1000000));by('rail').style.setProperty('--done',(100*ratio)+'%');by('progress').setAttribute('aria-valuetext',clock(time)+' of '+clock(job.duration));by('elapsed').textContent=clock(time);
     for(let k=0;k<3;k++)by(['px','py','pz'][k]).textContent=fmt(p[k]);
     const t=job.tool[i],mode=['Rapid','Feed','Dwell'][job.kind[i]]||'Move';
+    if(activeSlot!==t || Number(by('inspect-tool').value)!==t){activeSlot=t;if(cutTools[t])showProfile(t);}
+    updateMaterialReadout();
     by('view-state').textContent=(t?'T'+t:'Tool ?')+' · '+mode;by('tool-dot').style.background=job.kind[i]===0?'#b5c3d2':color(t);
     by('motion-data').textContent=(t?'T'+t:'Unknown tool')+'  ·  '+mode+(job.kind[i]===1?'  '+job.feed[i].toFixed(0)+' mm/min':'')+'  ·  '+(job.spindle[i]?'Spindle on':'Spindle off');
     by('lineinfo').textContent='Line '+job.line[i].toLocaleString()+' / '+sourceList.count.toLocaleString();
@@ -216,6 +286,7 @@
     }
   }
   function controls(){const conf=stockFor(source);stock=conf.v;cutTools=toolsFor(source);
+    setToolInspector();
     for(const k of stockKeys)by('stock-'+k).value=String(stock[k]);by('stock-hint').textContent=conf.hint;
     setToolFields();
     by('setup-msg').textContent='Enter the cutting diameter for each tool. A diameter of zero omits its cut from the stock simulation. Drills use a 118° included angle.';
@@ -242,6 +313,7 @@
     }
     const previouslySized=hasSizedTool();
     stock=next;cutTools=nt;path.setStock(stock);path.setTools(nt);
+    setToolInspector();
     if(hasSolid)solid.setStock(stock);
     cut.setStock(stock);cut.setTools(nt);updateMarkers();
     by('configure-tools').hidden=Object.values(nt).every(tool=>tool.d>0);
@@ -300,6 +372,7 @@
     const rapid=el('span','keyitem');const dot=el('i','dot');dot.style.background='#a7bacd';rapid.append(dot,document.createTextNode('Rapid'));key.append(rapid);
   }
   function openJob(text,name,parsed,isDemo){
+    cancelToolLookup();activeSlot=null;stockFrame=null;
     job=parsed;source=text;sourceList.setJob(text,job);
     by('filename').textContent=isDemo?'Arc pocket plate · demo.nc':name;by('filename').title=name;document.title=name+' · Pathscope';by('duration').textContent=clock(job.duration);
     const warnings=by('warnings');warnings.hidden=!job.warnings.length;warnings.open=!!job.warnings.length;
@@ -338,6 +411,7 @@
   }
   async function load(loader,name,isDemo=false){
     const id=++ticket;
+    cancelToolLookup();
     if(cancelParse){cancelParse();cancelParse=null;}
     pause();loadState=true;busy('Reading '+name+'…');
     try{
@@ -358,6 +432,8 @@
     },'demo.nc',true);
   }
   function loadFile(f){if(f)load(()=>f.text(),f.name);}
+  on('inspect-tool','change',()=>{pause();cancelToolLookup();showProfile(Number(by('inspect-tool').value));});
+  on('show-tool-cut','click',inspectCut);
   makeFields(); on('close-msg','click',()=>by('msg').close());on('open-btn','click',()=>by('file').click());on('file','change',e=>{loadFile(e.target.files[0]);e.target.value='';});on('demo-btn','click',sample);on('job-tab','click',()=>setTab(false));on('setup-tab','click',()=>setTab(true));on('configure-tools','click',configureMissingTools);
   on('play','click',play);on('prev-step','click',()=>step(false));on('next-step','click',()=>step(true));on('progress','input',()=>{if(job)jump(job.duration*Number(by('progress').value)/1000000);});on('apply','click',applyConfig);
   function jumpInView(target,seconds){jump(seconds);if(view!==target)setView(target);}

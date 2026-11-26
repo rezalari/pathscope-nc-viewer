@@ -266,22 +266,30 @@
     _tool(c,point,toolNo) {
       const opt=this.tools instanceof Map?this.tools.get(toolNo):this.tools?.[toolNo];
       const d=Number(opt?.d??opt?.diameter??1.5),shape=String(opt?.shape||"flat").toLowerCase();
-      const rad=Math.max(.03,Math.abs(d)/2);
-      const length=Math.min(Math.max(44/this.scale,rad*2.6),Math.max(rad*6,90/this.scale));
       const [x,y,z]=point;
-      const centerZ=shape.includes("ball")?rad:shape.includes("drill")?rad*.6:0;
+      const chamfer=shape==="chamfer", tipRadius=chamfer?Number(opt.tip)/2:0;
+      if(chamfer && (!(d>0) || !(opt.angle>0 && opt.angle<180) || !(tipRadius>=0 && tipRadius<=d/2)))return;
+      const rad=chamfer?d/2:Math.max(.03,Math.abs(d)/2);
+      const shoulder=chamfer?(rad-tipRadius)/Math.tan(opt.angle*Math.PI/360):
+        shape.includes("ball")?rad:shape.includes("drill")?rad*.6:0;
+      const length=Math.max(shoulder+rad,Math.min(Math.max(44/this.scale,rad*2.6),Math.max(rad*6,90/this.scale)));
       // Rotate the circular tool through the view basis so the two side strokes are its silhouette.
       const w=this.u,t=toolColor(toolNo);
       const ring=(dz,r)=>Array.from({length:33},(_,i)=>{const a=i*Math.PI/16;return [x+r*Math.cos(a),y+r*Math.sin(a),z+dz];});
       c.lineWidth=1.2;const outline=[];
-      if(centerZ>0){for(let i=-16;i<=16;i++){
-        const v=i/16,dz=shape.includes("ball")?rad*(1-Math.sqrt(Math.max(0,1-v*v))):centerZ*Math.abs(v);
+      if(chamfer){
+        for(const [offset,height] of [[-rad,shoulder],[-tipRadius,0],[tipRadius,0],[rad,shoulder]]) {
+          outline.push([x+w[0]*offset,y+w[1]*offset,z+height]);
+        }
+      }else if(shoulder>0){for(let i=-16;i<=16;i++){
+        const v=i/16,dz=shape.includes("ball")?rad*(1-Math.sqrt(Math.max(0,1-v*v))):shoulder*Math.abs(v);
         outline.push([x+w[0]*v*rad,y+w[1]*v*rad,z+dz]);}}
       else outline.push([x-w[0]*rad,y-w[1]*rad,z],[x+w[0]*rad,y+w[1]*rad,z]);
       outline.push([x+w[0]*rad,y+w[1]*rad,z+length],[x-w[0]*rad,y-w[1]*rad,z+length]);
       this._poly(c,outline,"rgba(241,247,247,.16)","#e8f2f2");
       this._poly(c,ring(length,rad),"rgba(238,244,245,.28)","#eff5f6");
-      this._poly(c,ring(centerZ,rad),null,t);
+      this._poly(c,ring(shoulder,rad),null,t);
+      if(chamfer && tipRadius>0 && tipRadius<rad) this._poly(c,ring(0,tipRadius),null,t);
       const tip=this.project(point);c.fillStyle="#fff";c.strokeStyle="#17242a";c.lineWidth=1;c.beginPath();c.arc(...tip,2.1,0,2*Math.PI);c.fill();c.stroke();
     }
     _draw() {

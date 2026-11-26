@@ -279,7 +279,9 @@
     setCutterVisible(yes){if(this.showCutter!==!!yes){this.showCutter=!!yes;this.schedule();}}
     displayedCutter(frame){
       const c=frame?.cutter;
-      if(!this.showCutter||!c||!(c.d>0)||c.state==='complete'||![c.x,c.y,c.z].every(Number.isFinite))return null;
+      if(!this.showCutter||!c||!(c.d>0)||![c.x,c.y,c.z].every(Number.isFinite))return null;
+      if(this.requestedTool!=null && c.tool!==this.requestedTool)return null;
+      if(this.waitExact && Math.abs(frame.t-this.requested)>1e-5)return null;
       const key=JSON.stringify([c.d,c.shape,c.angle,c.tip]);
       if(key!==this.toolShapeKey){
         this.toolShape=globalThis.buildCutterMesh?.(c);
@@ -291,10 +293,18 @@
     }
     setMeta(meta){this.meta=meta;this.schedule();}
     setStatus(message){const next=String(message||'');if(next===this.notice)return;this.notice=next;this.updateHud();}
-    setTime(time){const previous=this.requested;this.requested=Math.max(0,Number(time)||0);
-      if(this.requested===0||previous===0)this.schedule();else if(this.active)this.updateHud();}
+    setTime(time,tool,playing=false){const previous=this.requested,priorTool=this.requestedTool;this.requested=Math.max(0,Number(time)||0);
+      this.requestedTool=tool;this.waitExact=!playing;
+      if(!playing||priorTool!==tool||this.requested===0||previous===0)this.schedule();else if(this.active)this.updateHud();}
     setActive(yes){this.active=!!yes;if(this.active)this.schedule();}
     fit(mode){this.mode=mode==='stock'?'stock':'path';this.focus=null;this.factor=1;this.pan=[0,0];this.fitAxes=basis(this.yaw,this.elevation);this.schedule();}
+    focusCutter(c){
+      const mesh=globalThis.buildCutterMesh?.(c);if(!mesh)return;
+      const halfWidth=Math.max(c.d*2.5,mesh.bounds.max[2]*.55);
+      this.elevation=.45;this.factor=1;this.pan=[0,0];this.fitAxes=basis(this.yaw,this.elevation);
+      this.focus=[c.x-halfWidth,c.y-halfWidth,c.z-c.d,c.x+halfWidth,c.y+halfWidth,c.z+mesh.bounds.max[2]+c.d*.3];
+      this.schedule();
+    }
     zoom(factor,px=0,py=0){
       if(!Number.isFinite(factor)||factor<=0)return;
       const f=clamp(this.factor*factor,.035,100),r=f/this.factor;

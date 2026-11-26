@@ -128,7 +128,7 @@
     // Accumulate estimated air-feed time only for moves for which removal can
     // be simulated. Fixed intervals along a move keep results repeatable when
     // seeking; a lone long feed may enter and exit stock or a previously cut slot.
-    function advance(pixels, i, fraction = 1, measurement) {
+    function advance(pixels, i, fraction = 1, measurement, firstRemoval) {
       const tip = tools[tool[i]];
       if (kind[i] !== 1 || !spindle[i] || !tip || fraction <= 0) return 0;
       const dt = endTime[i] - (i ? endTime[i-1] : 0), p = i * 6;
@@ -156,6 +156,9 @@
           if (measurement && start >= sampleStart) measurement.recent += units;
         }
         if (measurement) measurement.move += units;
+        if (units && firstRemoval && firstRemoval.end === undefined) {
+          firstRemoval.start = start; firstRemoval.end = end;
+        }
         if (!units) {
           // Classify an incomplete interval the same way as the completed one
           // so the cumulative clock cannot run backward at first contact.
@@ -208,16 +211,49 @@
       return {cutter, removal:{totalMM3:totalUnits * unitVolume, moveMM3:units.move * unitVolume,
         recentMM3:units.recent * unitVolume, airFeedSeconds}};
     }
-    return {blank, sweep, advance, meta, cursorAt, inspectFrame};
+    return {blank, sweep, advance, meta, cursorAt, inspectFrame, hasTool:slot=>Boolean(tools[slot])};
   }
 
   function stockWorker(buildEngine, buildMesh) {
     let job, engine, stock, pixels, checkpoints, stride, built, mode, timer, request;
     let airSeconds, checkpointAir;
     let lastSolidDepths, meshError, removedError, removedVisible = false, hasRemovedMesh = false;
-    let key = 0, lastProgress = 0;
+    let key = 0, lastProgress = 0, lookup;
+    const firstCuts = new Map();
 
     function report() { self.postMessage({key, type:"progress", progress: job.count ? built / job.count : 1}); }
+    function resolveLookup() {
+      if (!lookup) return;
+      const {id,tool} = lookup;
+      if (!firstCuts.has(tool) && built < job.count && engine.hasTool(tool)) return;
+      lookup = null;
+      self.postMessage({key,type:"tool-cut",id,tool,cut:firstCuts.get(tool) || null});
+    }
+    function locate(i, range) {
+      // Restore stock immediately before this move, including work done by
+      // earlier tools. A first approach can traverse an already-cleared slot.
+      const checkpoint = Math.floor(i / stride);
+      const before = checkpoints[checkpoint].slice();
+      for (let j=checkpoint*stride; j<i; j++) engine.advance(before,j);
+      let lo=range.start, hi=range.end;
+      for(let j=0;j<24;j++){
+        const mid=(lo+hi)/2;
+        if(engine.sweep(before.slice(),i,mid)>0) hi=mid; else lo=mid;
+      }
+      const p=6*i, a=job.xyz, length=Math.hypot(a[p+3]-a[p],a[p+4]-a[p+1],a[p+5]-a[p+2]);
+      const grid=Math.max(engine.meta.sx,engine.meta.sy);
+      // Land inside the move, within one grid cell of initial removal. Its
+      // endpoint can already belong to the next tool or a rapid retract.
+      const start=i?job.endTime[i-1]:0, end=job.endTime[i];
+      for (const f of [Math.min(range.end,hi+(length?grid/length:0)),hi]) {
+        const t=Math.min(start+f*(end-start),end-Math.max(1,Math.abs(end))*Number.EPSILON);
+        const cursor=engine.cursorAt(t);
+        if(cursor.i!==i) continue;
+        const {cutter}=engine.inspectFrame(before.slice(),i,cursor.fraction);
+        if(cutter.state==="cutting") return {tool:cutter.tool,t,move:i,x:cutter.x,y:cutter.y,z:cutter.z};
+      }
+      return null;
+    }
     function display() {
       if (!request || !engine || !mode) return;
       const {i, fraction} = engine.cursorAt(request.t);
@@ -266,25 +302,35 @@
     }
     function pump() {
       timer = undefined;
-      if (!mode) return;
+      if (!mode && !lookup) return;
       display();
       const deadline = performance.now() + 16;
       while (built < job.count && performance.now() < deadline) {
         const stop = Math.min(built + 64, job.count);
         for (; built < stop;) {
-          airSeconds += engine.advance(pixels, built++);
+          const i=built, slot=job.tool[i];
+          const range=firstCuts.has(slot) || job.kind[i]!==1 || !job.spindle[i] || !engine.hasTool(slot) ? null : {};
+          airSeconds += engine.advance(pixels,i,1,null,range);
+          if(range?.end!==undefined){
+            const cut=locate(i,range);
+            if(cut) firstCuts.set(slot,cut);
+          }
+          built++;
           if (built % stride === 0) { checkpoints.push(pixels.slice()); checkpointAir.push(airSeconds); }
+          resolveLookup();
+          if (!mode && !lookup) return;
         }
       }
       const now = performance.now();
       if (built === job.count || now - lastProgress > 240) { report(); lastProgress = now; }
       display();
-      if (built < job.count) timer = setTimeout(pump, 0);
+      if (built < job.count && (mode || lookup)) timer = setTimeout(pump, 0);
     }
     self.onmessage = ({data}) => {
       if (data.type === "job") job = data.job;
       if (data.type === "configure") {
         clearTimeout(timer); timer = undefined; key = data.key;request = null;
+        firstCuts.clear(); lookup=null;
         stock = data.stock; lastSolidDepths = null; meshError = removedError = ""; hasRemovedMesh = false;
         engine = buildEngine(job, stock, data.tools);
         pixels = engine.blank(); checkpoints = [pixels.slice()];built = 0;
@@ -301,7 +347,9 @@
         removedVisible = data.visible; hasRemovedMesh = false; removedError = "";
       }
       if (data.type === "seek") request = {t:data.t};
-      if (engine && mode && timer === undefined) timer = setTimeout(pump, 0);
+      if(data.type==="find-cut" && data.key===key){lookup={id:data.id,tool:data.tool};resolveLookup();}
+      if(data.type==="cancel-find" && data.key===key && lookup?.id===data.id) lookup=null;
+      if (engine && (mode || lookup) && timer === undefined) timer = setTimeout(pump, 0);
     };
   }
   function NCCutMap(container, {onStatus, onFrame} = {}) {
@@ -318,6 +366,7 @@
     let imageTime = -1, textureValid = false, key = 0, error = "", solidError = "", removedError = "";
     let removedVisible = false;
     let lastDepths = null, solidFrame = null, lastStatus = "", sentTime = -1;
+    let lookup=null, nextLookup=0;
     let zoomFactor = 1, cx = 0, cy = 0, mode = "path", customCamera = false;
     let width = 0, height = 0, scale = 1, lastSeek = 0, frame;
     let cursorX, cursorY;
@@ -364,6 +413,7 @@
       worker = new Worker(workerUrl);
       worker.onmessage = ({data}) => {
         if (data.key !== key) return;
+        if (data.type === "tool-cut") {finishLookup(data.id,data.cut); return;}
         if (data.type === "meta") {
           meta = data.meta;textureValid = false;
           if (!customCamera) fit(mode);
@@ -389,13 +439,14 @@
         schedulePaint();
       };
       worker.onerror = event => {
+        if(lookup) finishLookup(lookup.id,null);
         error = "Depth preview unavailable" + (event.message ? " · " + event.message : "");
         reportStatus();schedulePaint();
       };
     }
     function configure() {
       clearTimeout(configureTimer);configureTimer = undefined;
-      if (!job || !stock || !activeView || !configDirty) return;
+      if (!job || !stock || (!activeView && !lookup) || !configDirty) return;
       try {
         startWorker();
         if (sourceChanged) {
@@ -413,12 +464,35 @@
       }
     }
     function dirty() {
+      cancelLookup();
       key++;configDirty = true;textureValid = false;imageTime = -1;meta = undefined;progress = 0;
       lastDepths = null;solidFrame = null;solidError = removedError = "";error = "";sentTime = -1;
       if (onFrame) onFrame(null);
       reportStatus();
       clearTimeout(configureTimer);configureTimer = setTimeout(configure, 35);
       schedulePaint();
+    }
+    function finishLookup(id,cut) {
+      if(lookup?.id!==id) return;
+      const callback=lookup.callback;
+      lookup=null;
+      callback(cut);
+    }
+    function cancelLookup() {
+      if(!lookup) return;
+      worker?.postMessage({type:"cancel-find",id:lookup.id,key});
+      lookup=null;
+    }
+    function findToolCut(slot,callback) {
+      cancelLookup();
+      const tool=Number(slot), id=++nextLookup;
+      lookup={id,callback};
+      if(job?.tools.includes(tool) && Number(tools[tool]?.d)>0) {
+        if(configDirty) configure();
+        if(worker && !configDirty && !error) worker.postMessage({type:"find-cut",id,tool,key});
+        else setTimeout(()=>finishLookup(id,null),0);
+      } else setTimeout(()=>finishLookup(id,null),0);
+      return ()=>{if(lookup?.id===id)cancelLookup();};
     }
     function reportStatus() {
       if (!onStatus) return;
@@ -585,8 +659,9 @@
         } else if(worker)worker.postMessage({type:"active",active:false});
         reportStatus();
       },
-      fit,zoom,
+      fit,zoom,findToolCut,
       destroy() {
+        cancelLookup();
         observer.disconnect();clearTimeout(configureTimer);clearTimeout(seekTimer);cancelAnimationFrame(frame);
         if(worker)worker.terminate();if(workerUrl)URL.revokeObjectURL(workerUrl);canvas.remove();
       }

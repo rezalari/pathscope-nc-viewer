@@ -29,6 +29,7 @@
 .source-row:hover{background:#233239}.source-row.now{background:#2d4136;color:#d9f2bd;box-shadow:inset 3px 0 #b9e49c}.source-row.picked{background:#263c49;color:#d2e8ef;box-shadow:inset 3px 0 #78b2ca}.source-row.now .source-number,.source-row.picked .source-number{color:inherit}
 .source-note{font-size:11px;color:var(--muted);margin:5px 0 0}.source-note:empty{display:none}
 .source-track{overflow-y:clip}.chamfer-fields{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:4px 0 8px 39px}.chamfer-fields label{font-size:11px;color:var(--muted)}.chamfer-fields input{margin-top:3px;padding:4px}
+.cutter-pick{display:flex;gap:5px}.cutter-pick select{flex:1;min-width:0}.cutter-pick button{white-space:nowrap}.tool-profile-box{display:flex;gap:9px;align-items:center;margin:7px 0 0}.tool-profile-box canvas{flex:none;background:#101c24;border:1px solid var(--border);border-radius:4px;width:68px;height:56px}.tool-profile-box span{font:11px/1.5 var(--mono);color:#c9d6d8}.tool-result{font-size:11px;color:var(--muted);margin:5px 0 0}.tool-result:empty{display:none}
 </style></head>
 <body><main class="app"><header class="header"><div class="brand"><svg viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M2 9.5 16 2l14 7.5L16 17 2 9.5Z" stroke="#b9e49c" stroke-width="2"/><path d="m3 16 13 7 13-7M3 22.5 16 30l13-7.5" stroke="#b9e49c" stroke-width="2"/></svg><span>Pathscope<small class="brand-sub">NC Viewer</small></span></div><div class="divider"></div><div class="filename" id="filename" title="Current NC file">NC viewer</div><div class="header-actions"><button id="demo-btn" class="flat">Load demo</button><button id="open-btn" class="primary"><svg viewBox="0 0 24 24"><path d="M3 17V6h7l2 2h8v3M3 18l3-7h15l-3 8H3z"/></svg>Open NC file</button></div><input type="file" id="file" accept=".nc,.cnc,.gcode,.gc,.tap,.ngc,.txt,.ncc,.iso,.gco,*/*" hidden></header>
 <section class="work"><div class="center"><div class="viewport" id="viewport"><div id="solid-surface" class="surface" aria-label="Rotatable 3D remaining stock"></div><div id="path-surface" class="surface" aria-label="Interactive toolpath" hidden></div><div id="depth-surface" class="surface" aria-label="Simulated cut depths" hidden></div>
@@ -45,7 +46,7 @@
 </div><div class="scrubber"><div id="rail" class="rail"></div><input type="range" id="progress" min="0" max="1000000" step="1" value="0" aria-label="Simulation progress"></div><div class="transports"><button class="ico" id="prev-step" aria-label="Previous motion" title="Previous motion"><svg viewBox="0 0 24 24"><path d="M6 5v14m12-13-9 6 9 6z"/></svg></button><button class="primary" id="play" aria-label="Play simulation"><span id="play-icon">▶</span><span id="play-text">Play</span></button><button class="ico" id="next-step" aria-label="Next motion" title="Next motion"><svg viewBox="0 0 24 24"><path d="M18 5v14M6 6l9 6-9 6z"/></svg></button><select id="speed" aria-label="Playback speed" title="Playback speed"><option value="1">1×</option><option value="10">10×</option><option value="60" selected>60×</option><option value="300">300×</option><option value="1000">1000×</option></select><button id="to-finished" title="Show the solid material left at the end of the program">Finished part</button><span class="lineinfo" id="lineinfo"></span></div></div></div>
 <aside class="side"><nav class="side-nav"><button id="job-tab" class="on">Job</button><button id="setup-tab">Setup</button></nav><div class="sidebody"><p class="local-note">Your NC files stay in your browser.</p>
 <details id="warnings" class="warn" hidden><summary id="warning-title"></summary><ul id="warning-items"></ul></details>
-<div id="job-panel"><button id="configure-tools" hidden>Set cutter sizes for solid preview</button><section class="group"><div class="sectionhead"><h2>Operations</h2><small id="op-count"></small></div><div class="ops" id="operations"></div></section>
+<div id="job-panel"><button id="configure-tools" hidden>Set cutter sizes for solid preview</button><section id="tool-inspector" class="group"><h2>Inspect cutter</h2><div class="cutter-pick"><select id="inspect-tool" aria-label="Choose a cutter to inspect"></select><button id="show-tool-cut" title="Find a move where this cutter removes material and zoom in">Show cut</button></div><div class="tool-profile-box"><canvas id="tool-profile" width="102" height="84" aria-label="Side profile of the selected cutter tip"></canvas><span id="tool-dimensions"></span></div><p id="tool-result" class="tool-result" role="status"></p></section><section class="group"><div class="sectionhead"><h2>Operations</h2><small id="op-count"></small></div><div class="ops" id="operations"></div></section>
 <section class="group"><h2>Jump to move</h2><div class="compact"><select id="stage-select" aria-label="Select individual program stage"></select></div><div class="compact" id="hole-block" style="margin-top:6px"><select id="hole-select" aria-label="Select individual hole"></select></div><div class="jump"><button id="to-stage-end" title="Show the solid material left after the selected stage">After stage</button><button id="to-entry" title="Go to the endpoint of the first spindle-on feed starting into the job">First feed</button><button id="to-contact" title="First estimated tool contact with the configured stock">Stock contact</button></div></section>
 <section class="group"><div class="sectionhead"><h2>Tool position</h2><small>mm</small></div><div class="readout"><div><span>X</span><strong id="px">—</strong></div><div><span>Y</span><strong id="py">—</strong></div><div><span>Z</span><strong id="pz">—</strong></div></div><div class="footer-line" id="motion-data"></div></section>
 <section class="group"><div class="source-head"><h2 id="source-title">G-code</h2><div class="source-jump"><input id="source-line" type="number" min="1" step="1" inputmode="numeric" placeholder="Line #" aria-label="Go to physical line number"><button id="source-go" type="button">Go</button></div></div><div class="linecode" id="linecode" role="listbox" tabindex="0" aria-labelledby="source-title" aria-describedby="source-note" title="Select a line to pause at its first motion. Use the arrow keys to move between lines."></div><p class="source-note" id="source-note" role="status"></p></section>
@@ -54,7 +55,7 @@
 <section class="group"><h2>Path display</h2><div class="flags" id="flags"></div></section>
 <section class="group"><h2>Viewer limits</h2><p class="detail">Solid and cut-depth views model the material left by top-down machining. Surfaces are sampled on a grid. Side undercuts and loose piece movement are outside the model. Workholding, tool changes, probe motion and machine limits require a separate check. Estimated times depend on feed and rapid rates.</p><p class="detail" id="parser-notes"></p></section></div>
 </div></aside></section></main><dialog id="msg"><h2 id="msgtitle">NC viewer</h2><p id="msgtext"></p><button id="close-msg" class="primary">Close</button></dialog>
-<script type="application/octet-stream" id="demo">KEFyYyBwb2NrZXQgcGxhdGUpCihJbGx1c3RyYXRpdmUgdG9vbHBhdGhzIGZvciBzaW11bGF0aW9uLiBObyBtYWNoaW5lIG9yIGZpeHR1cmUgc2V0dXAgaXMgc3BlY2lmaWVkLikKKFNUT0NLIFgwLi43MiBZMC4uNDggWi05Li4wIG1tKQooVE9PTCBUMSBENiBGTEFUKQooVE9PTCBUMiBEMyBGTEFUKQooVE9PTCBUMyBENCBEUklMTCkKRzIxIEcxNyBHOTAgRzk0Ckc1NAooT3BlcmF0aW9uOiBGYWNlIHRoZSBwbGF0ZSkKVDEgTTYKRzAgWjUKRzAgWC0zLjEgWTAKTTMgUzEwMDAwCkcwIFoxCkcxIFotMC40IEYyMDAKRzEgWDc1LjEgRjc0MApHMSBZNApHMSBYLTMuMQpHMSBZOApHMSBYNzUuMQpHMSBZMTIKRzEgWC0zLjEKRzEgWTE2CkcxIFg3NS4xCkcxIFkyMApHMSBYLTMuMQpHMSBZMjQKRzEgWDc1LjEKRzEgWTI4CkcxIFgtMy4xCkcxIFkzMgpHMSBYNzUuMQpHMSBZMzYKRzEgWC0zLjEKRzEgWTQwCkcxIFg3NS4xCkcxIFk0NApHMSBYLTMuMQpHMSBZNDgKRzEgWDc1LjEKRzAgWjQKKE9wZXJhdGlvbjogTWlsbCB0aGUgb3ZhbCBiYXNpbikKRzAgWDI1IFkyNApHMCBaMC42CkcxIFotMC40IEYxODAKRzEgWDQ3IFkyNCBaLTEuMyBGMzIwCkcxIFgyNSBGNjAwCkcxIFkyMC44CkcxIFg0NyBZMjAuOCBGNjAwCkczIFg0NyBZMjcuMiBJMCBKMy4yCkcxIFgyNQpHMyBYMjUgWTIwLjggSTAgSi0zLjIKRzEgWTE3LjYKRzEgWDQ3IFkxNy42IEY2MDAKRzMgWDQ3IFkzMC40IEkwIEo2LjQKRzEgWDI1CkczIFgyNSBZMTcuNiBJMCBKLTYuNApHMSBZMTQuNApHMSBYNDcgWTE0LjQgRjYwMApHMyBYNDcgWTMzLjYgSTAgSjkuNgpHMSBYMjUKRzMgWDI1IFkxNC40IEkwIEotOS42CkcxIFkxMS40CkcxIFg0NyBZMTEuNCBGNjAwCkczIFg0NyBZMzYuNiBJMCBKMTIuNgpHMSBYMjUKRzMgWDI1IFkxMS40IEkwIEotMTIuNgpHMSBZMjQKRzEgWDQ3IFkyNCBaLTIuMiBGMzIwCkcxIFgyNSBGNjAwCkcxIFkyMC44CkcxIFg0NyBZMjAuOCBGNjAwCkczIFg0NyBZMjcuMiBJMCBKMy4yCkcxIFgyNQpHMyBYMjUgWTIwLjggSTAgSi0zLjIKRzEgWTE3LjYKRzEgWDQ3IFkxNy42IEY2MDAKRzMgWDQ3IFkzMC40IEkwIEo2LjQKRzEgWDI1CkczIFgyNSBZMTcuNiBJMCBKLTYuNApHMSBZMTQuNApHMSBYNDcgWTE0LjQgRjYwMApHMyBYNDcgWTMzLjYgSTAgSjkuNgpHMSBYMjUKRzMgWDI1IFkxNC40IEkwIEotOS42CkcxIFkxMS40CkcxIFg0NyBZMTEuNCBGNjAwCkczIFg0NyBZMzYuNiBJMCBKMTIuNgpHMSBYMjUKRzMgWDI1IFkxMS40IEkwIEotMTIuNgpHMSBZMjQKRzEgWDQ3IFkyNCBaLTMgRjMyMApHMSBYMjUgRjYwMApHMSBZMjAuOApHMSBYNDcgWTIwLjggRjYwMApHMyBYNDcgWTI3LjIgSTAgSjMuMgpHMSBYMjUKRzMgWDI1IFkyMC44IEkwIEotMy4yCkcxIFkxNy42CkcxIFg0NyBZMTcuNiBGNjAwCkczIFg0NyBZMzAuNCBJMCBKNi40CkcxIFgyNQpHMyBYMjUgWTE3LjYgSTAgSi02LjQKRzEgWTE0LjQKRzEgWDQ3IFkxNC40IEY2MDAKRzMgWDQ3IFkzMy42IEkwIEo5LjYKRzEgWDI1CkczIFgyNSBZMTQuNCBJMCBKLTkuNgpHMSBZMTEuNApHMSBYNDcgWTExLjQgRjYwMApHMyBYNDcgWTM2LjYgSTAgSjEyLjYKRzEgWDI1CkczIFgyNSBZMTEuNCBJMCBKLTEyLjYKRzEgWTI0CkcwIFo1Ck01CihPcGVyYXRpb246IEN1dCB0aGUgcmluZyBjaGFubmVscykKVDIgTTYKTTMgUzEyMDAwCkcwIFgyNSBZMTkuMzUKRzAgWjAuOApHMSBaLTMgRjE4MApHMSBYNDcgWi00IEYyODAKRzEgWDI1IEY0OTAKRzEgWDQ3IFkxOS4zNSBGNDkwCkczIFg0NyBZMjguNjUgSTAgSjQuNjUKRzEgWDI1CkczIFgyNSBZMTkuMzUgSTAgSi00LjY1CkcxIFkxOC4yNQpHMSBYNDcgWTE4LjI1IEY0OTAKRzMgWDQ3IFkyOS43NSBJMCBKNS43NQpHMSBYMjUKRzMgWDI1IFkxOC4yNSBJMCBKLTUuNzUKRzEgWTE5LjM1CkcxIFg0NyBaLTUgRjI4MApHMSBYMjUgRjQ5MApHMSBYNDcgWTE5LjM1IEY0OTAKRzMgWDQ3IFkyOC42NSBJMCBKNC42NQpHMSBYMjUKRzMgWDI1IFkxOS4zNSBJMCBKLTQuNjUKRzEgWTE4LjI1CkcxIFg0NyBZMTguMjUgRjQ5MApHMyBYNDcgWTI5Ljc1IEkwIEo1Ljc1CkcxIFgyNQpHMyBYMjUgWTE4LjI1IEkwIEotNS43NQpHMSBZMTkuMzUKRzEgWDQ3IFotNiBGMjgwCkcxIFgyNSBGNDkwCkcxIFg0NyBZMTkuMzUgRjQ5MApHMyBYNDcgWTI4LjY1IEkwIEo0LjY1CkcxIFgyNQpHMyBYMjUgWTE5LjM1IEkwIEotNC42NQpHMSBZMTguMjUKRzEgWDQ3IFkxOC4yNSBGNDkwCkczIFg0NyBZMjkuNzUgSTAgSjUuNzUKRzEgWDI1CkczIFgyNSBZMTguMjUgSTAgSi01Ljc1CkcxIFkxOS4zNQpHMSBYNDcgWi03IEYyODAKRzEgWDI1IEY0OTAKRzEgWDQ3IFkxOS4zNSBGNDkwCkczIFg0NyBZMjguNjUgSTAgSjQuNjUKRzEgWDI1CkczIFgyNSBZMTkuMzUgSTAgSi00LjY1CkcxIFkxOC4yNQpHMSBYNDcgWTE4LjI1IEY0OTAKRzMgWDQ3IFkyOS43NSBJMCBKNS43NQpHMSBYMjUKRzMgWDI1IFkxOC4yNSBJMCBKLTUuNzUKRzEgWTE5LjM1CkcwIFo1CkcwIFgyNSBZMTMuMDUKRzAgWjAuOApHMSBaLTMgRjE4MApHMSBYNDcgWi00IEYyODAKRzEgWDI1IEY0OTAKRzEgWDQ3IFkxMy4wNSBGNDkwCkczIFg0NyBZMzQuOTUgSTAgSjEwLjk1CkcxIFgyNQpHMyBYMjUgWTEzLjA1IEkwIEotMTAuOTUKRzEgWTExLjk1CkcxIFg0NyBZMTEuOTUgRjQ5MApHMyBYNDcgWTM2LjA1IEkwIEoxMi4wNQpHMSBYMjUKRzMgWDI1IFkxMS45NSBJMCBKLTEyLjA1CkcxIFkxMy4wNQpHMSBYNDcgWi01IEYyODAKRzEgWDI1IEY0OTAKRzEgWDQ3IFkxMy4wNSBGNDkwCkczIFg0NyBZMzQuOTUgSTAgSjEwLjk1CkcxIFgyNQpHMyBYMjUgWTEzLjA1IEkwIEotMTAuOTUKRzEgWTExLjk1CkcxIFg0NyBZMTEuOTUgRjQ5MApHMyBYNDcgWTM2LjA1IEkwIEoxMi4wNQpHMSBYMjUKRzMgWDI1IFkxMS45NSBJMCBKLTEyLjA1CkcxIFkxMy4wNQpHMSBYNDcgWi02IEYyODAKRzEgWDI1IEY0OTAKRzEgWDQ3IFkxMy4wNSBGNDkwCkczIFg0NyBZMzQuOTUgSTAgSjEwLjk1CkcxIFgyNQpHMyBYMjUgWTEzLjA1IEkwIEotMTAuOTUKRzEgWTExLjk1CkcxIFg0NyBZMTEuOTUgRjQ5MApHMyBYNDcgWTM2LjA1IEkwIEoxMi4wNQpHMSBYMjUKRzMgWDI1IFkxMS45NSBJMCBKLTEyLjA1CkcxIFkxMy4wNQpHMSBYNDcgWi03IEYyODAKRzEgWDI1IEY0OTAKRzEgWDQ3IFkxMy4wNSBGNDkwCkczIFg0NyBZMzQuOTUgSTAgSjEwLjk1CkcxIFgyNQpHMyBYMjUgWTEzLjA1IEkwIEotMTAuOTUKRzEgWTExLjk1CkcxIFg0NyBZMTEuOTUgRjQ5MApHMyBYNDcgWTM2LjA1IEkwIEoxMi4wNQpHMSBYMjUKRzMgWDI1IFkxMS45NSBJMCBKLTEyLjA1CkcxIFkxMy4wNQpHMCBaNQpNNQooT3BlcmF0aW9uOiBEcmlsbCB0aGUgbW91bnRpbmcgaG9sZXMpClQzIE02Ck0zIFM0NTAwCihIb2xlIDEpCkcwIFg4IFk4CkcwIFoxCkcxIFotMiBGMTgwCkcwIFoxCkcwIFotMS41CkcxIFotNCBGMTgwCkcwIFoxCkcwIFotMy41CkcxIFotNiBGMTgwCkcwIFoxCkcwIFotNS41CkcxIFotOCBGMTgwCkcwIFoxCkcwIFotNy41CkcxIFotMTAuNCBGMTgwCkcwIFoxCkcwIFo1CihIb2xlIDIpCkcwIFg2NCBZOApHMCBaMQpHMSBaLTIgRjE4MApHMCBaMQpHMCBaLTEuNQpHMSBaLTQgRjE4MApHMCBaMQpHMCBaLTMuNQpHMSBaLTYgRjE4MApHMCBaMQpHMCBaLTUuNQpHMSBaLTggRjE4MApHMCBaMQpHMCBaLTcuNQpHMSBaLTEwLjQgRjE4MApHMCBaMQpHMCBaNQooSG9sZSAzKQpHMCBYNjQgWTQwCkcwIFoxCkcxIFotMiBGMTgwCkcwIFoxCkcwIFotMS41CkcxIFotNCBGMTgwCkcwIFoxCkcwIFotMy41CkcxIFotNiBGMTgwCkcwIFoxCkcwIFotNS41CkcxIFotOCBGMTgwCkcwIFoxCkcwIFotNy41CkcxIFotMTAuNCBGMTgwCkcwIFoxCkcwIFo1CihIb2xlIDQpCkcwIFg4IFk0MApHMCBaMQpHMSBaLTIgRjE4MApHMCBaMQpHMCBaLTEuNQpHMSBaLTQgRjE4MApHMCBaMQpHMCBaLTMuNQpHMSBaLTYgRjE4MApHMCBaMQpHMCBaLTUuNQpHMSBaLTggRjE4MApHMCBaMQpHMCBaLTcuNQpHMSBaLTEwLjQgRjE4MApHMCBaMQpHMCBaNQpNNQpNMzAK</script>
+<script type="application/octet-stream" id="demo">KEFyYyBwb2NrZXQgcGxhdGUpCihJbGx1c3RyYXRpdmUgdG9vbHBhdGhzIGZvciBzaW11bGF0aW9uLiBObyBtYWNoaW5lIG9yIGZpeHR1cmUgc2V0dXAgaXMgc3BlY2lmaWVkLikKKFNUT0NLIFgwLi43MiBZMC4uNDggWi05Li4wIG1tKQooVE9PTCBUMSBENiBGTEFUKQooVE9PTCBUMiBEMyBGTEFUKQooVE9PTCBUMyBENCBEUklMTCkKKFRPT0wgVDYgRDYgQ0hBTUZFUiBBOTAgVElQMC40KQpHMjEgRzE3IEc5MCBHOTQKRzU0CihPcGVyYXRpb246IEZhY2UgdGhlIHBsYXRlKQpUMSBNNgpHMCBaNQpHMCBYLTMuMSBZMApNMyBTMTAwMDAKRzAgWjEKRzEgWi0wLjQgRjIwMApHMSBYNzUuMSBGNzQwCkcxIFk0CkcxIFgtMy4xCkcxIFk4CkcxIFg3NS4xCkcxIFkxMgpHMSBYLTMuMQpHMSBZMTYKRzEgWDc1LjEKRzEgWTIwCkcxIFgtMy4xCkcxIFkyNApHMSBYNzUuMQpHMSBZMjgKRzEgWC0zLjEKRzEgWTMyCkcxIFg3NS4xCkcxIFkzNgpHMSBYLTMuMQpHMSBZNDAKRzEgWDc1LjEKRzEgWTQ0CkcxIFgtMy4xCkcxIFk0OApHMSBYNzUuMQpHMCBaNAooT3BlcmF0aW9uOiBNaWxsIHRoZSBvdmFsIGJhc2luKQpHMCBYMjUgWTI0CkcwIFowLjYKRzEgWi0wLjQgRjE4MApHMSBYNDcgWTI0IFotMS4zIEYzMjAKRzEgWDI1IEY2MDAKRzEgWTIwLjgKRzEgWDQ3IFkyMC44IEY2MDAKRzMgWDQ3IFkyNy4yIEkwIEozLjIKRzEgWDI1CkczIFgyNSBZMjAuOCBJMCBKLTMuMgpHMSBZMTcuNgpHMSBYNDcgWTE3LjYgRjYwMApHMyBYNDcgWTMwLjQgSTAgSjYuNApHMSBYMjUKRzMgWDI1IFkxNy42IEkwIEotNi40CkcxIFkxNC40CkcxIFg0NyBZMTQuNCBGNjAwCkczIFg0NyBZMzMuNiBJMCBKOS42CkcxIFgyNQpHMyBYMjUgWTE0LjQgSTAgSi05LjYKRzEgWTExLjQKRzEgWDQ3IFkxMS40IEY2MDAKRzMgWDQ3IFkzNi42IEkwIEoxMi42CkcxIFgyNQpHMyBYMjUgWTExLjQgSTAgSi0xMi42CkcxIFkyNApHMSBYNDcgWTI0IFotMi4yIEYzMjAKRzEgWDI1IEY2MDAKRzEgWTIwLjgKRzEgWDQ3IFkyMC44IEY2MDAKRzMgWDQ3IFkyNy4yIEkwIEozLjIKRzEgWDI1CkczIFgyNSBZMjAuOCBJMCBKLTMuMgpHMSBZMTcuNgpHMSBYNDcgWTE3LjYgRjYwMApHMyBYNDcgWTMwLjQgSTAgSjYuNApHMSBYMjUKRzMgWDI1IFkxNy42IEkwIEotNi40CkcxIFkxNC40CkcxIFg0NyBZMTQuNCBGNjAwCkczIFg0NyBZMzMuNiBJMCBKOS42CkcxIFgyNQpHMyBYMjUgWTE0LjQgSTAgSi05LjYKRzEgWTExLjQKRzEgWDQ3IFkxMS40IEY2MDAKRzMgWDQ3IFkzNi42IEkwIEoxMi42CkcxIFgyNQpHMyBYMjUgWTExLjQgSTAgSi0xMi42CkcxIFkyNApHMSBYNDcgWTI0IFotMyBGMzIwCkcxIFgyNSBGNjAwCkcxIFkyMC44CkcxIFg0NyBZMjAuOCBGNjAwCkczIFg0NyBZMjcuMiBJMCBKMy4yCkcxIFgyNQpHMyBYMjUgWTIwLjggSTAgSi0zLjIKRzEgWTE3LjYKRzEgWDQ3IFkxNy42IEY2MDAKRzMgWDQ3IFkzMC40IEkwIEo2LjQKRzEgWDI1CkczIFgyNSBZMTcuNiBJMCBKLTYuNApHMSBZMTQuNApHMSBYNDcgWTE0LjQgRjYwMApHMyBYNDcgWTMzLjYgSTAgSjkuNgpHMSBYMjUKRzMgWDI1IFkxNC40IEkwIEotOS42CkcxIFkxMS40CkcxIFg0NyBZMTEuNCBGNjAwCkczIFg0NyBZMzYuNiBJMCBKMTIuNgpHMSBYMjUKRzMgWDI1IFkxMS40IEkwIEotMTIuNgpHMSBZMjQKRzAgWjUKTTUKKE9wZXJhdGlvbjogQ3V0IHRoZSByaW5nIGNoYW5uZWxzKQpUMiBNNgpNMyBTMTIwMDAKRzAgWDI1IFkxOS4zNQpHMCBaMC44CkcxIFotMyBGMTgwCkcxIFg0NyBaLTQgRjI4MApHMSBYMjUgRjQ5MApHMSBYNDcgWTE5LjM1IEY0OTAKRzMgWDQ3IFkyOC42NSBJMCBKNC42NQpHMSBYMjUKRzMgWDI1IFkxOS4zNSBJMCBKLTQuNjUKRzEgWTE4LjI1CkcxIFg0NyBZMTguMjUgRjQ5MApHMyBYNDcgWTI5Ljc1IEkwIEo1Ljc1CkcxIFgyNQpHMyBYMjUgWTE4LjI1IEkwIEotNS43NQpHMSBZMTkuMzUKRzEgWDQ3IFotNSBGMjgwCkcxIFgyNSBGNDkwCkcxIFg0NyBZMTkuMzUgRjQ5MApHMyBYNDcgWTI4LjY1IEkwIEo0LjY1CkcxIFgyNQpHMyBYMjUgWTE5LjM1IEkwIEotNC42NQpHMSBZMTguMjUKRzEgWDQ3IFkxOC4yNSBGNDkwCkczIFg0NyBZMjkuNzUgSTAgSjUuNzUKRzEgWDI1CkczIFgyNSBZMTguMjUgSTAgSi01Ljc1CkcxIFkxOS4zNQpHMSBYNDcgWi02IEYyODAKRzEgWDI1IEY0OTAKRzEgWDQ3IFkxOS4zNSBGNDkwCkczIFg0NyBZMjguNjUgSTAgSjQuNjUKRzEgWDI1CkczIFgyNSBZMTkuMzUgSTAgSi00LjY1CkcxIFkxOC4yNQpHMSBYNDcgWTE4LjI1IEY0OTAKRzMgWDQ3IFkyOS43NSBJMCBKNS43NQpHMSBYMjUKRzMgWDI1IFkxOC4yNSBJMCBKLTUuNzUKRzEgWTE5LjM1CkcxIFg0NyBaLTcgRjI4MApHMSBYMjUgRjQ5MApHMSBYNDcgWTE5LjM1IEY0OTAKRzMgWDQ3IFkyOC42NSBJMCBKNC42NQpHMSBYMjUKRzMgWDI1IFkxOS4zNSBJMCBKLTQuNjUKRzEgWTE4LjI1CkcxIFg0NyBZMTguMjUgRjQ5MApHMyBYNDcgWTI5Ljc1IEkwIEo1Ljc1CkcxIFgyNQpHMyBYMjUgWTE4LjI1IEkwIEotNS43NQpHMSBZMTkuMzUKRzAgWjUKRzAgWDI1IFkxMy4wNQpHMCBaMC44CkcxIFotMyBGMTgwCkcxIFg0NyBaLTQgRjI4MApHMSBYMjUgRjQ5MApHMSBYNDcgWTEzLjA1IEY0OTAKRzMgWDQ3IFkzNC45NSBJMCBKMTAuOTUKRzEgWDI1CkczIFgyNSBZMTMuMDUgSTAgSi0xMC45NQpHMSBZMTEuOTUKRzEgWDQ3IFkxMS45NSBGNDkwCkczIFg0NyBZMzYuMDUgSTAgSjEyLjA1CkcxIFgyNQpHMyBYMjUgWTExLjk1IEkwIEotMTIuMDUKRzEgWTEzLjA1CkcxIFg0NyBaLTUgRjI4MApHMSBYMjUgRjQ5MApHMSBYNDcgWTEzLjA1IEY0OTAKRzMgWDQ3IFkzNC45NSBJMCBKMTAuOTUKRzEgWDI1CkczIFgyNSBZMTMuMDUgSTAgSi0xMC45NQpHMSBZMTEuOTUKRzEgWDQ3IFkxMS45NSBGNDkwCkczIFg0NyBZMzYuMDUgSTAgSjEyLjA1CkcxIFgyNQpHMyBYMjUgWTExLjk1IEkwIEotMTIuMDUKRzEgWTEzLjA1CkcxIFg0NyBaLTYgRjI4MApHMSBYMjUgRjQ5MApHMSBYNDcgWTEzLjA1IEY0OTAKRzMgWDQ3IFkzNC45NSBJMCBKMTAuOTUKRzEgWDI1CkczIFgyNSBZMTMuMDUgSTAgSi0xMC45NQpHMSBZMTEuOTUKRzEgWDQ3IFkxMS45NSBGNDkwCkczIFg0NyBZMzYuMDUgSTAgSjEyLjA1CkcxIFgyNQpHMyBYMjUgWTExLjk1IEkwIEotMTIuMDUKRzEgWTEzLjA1CkcxIFg0NyBaLTcgRjI4MApHMSBYMjUgRjQ5MApHMSBYNDcgWTEzLjA1IEY0OTAKRzMgWDQ3IFkzNC45NSBJMCBKMTAuOTUKRzEgWDI1CkczIFgyNSBZMTMuMDUgSTAgSi0xMC45NQpHMSBZMTEuOTUKRzEgWDQ3IFkxMS45NSBGNDkwCkczIFg0NyBZMzYuMDUgSTAgSjEyLjA1CkcxIFgyNQpHMyBYMjUgWTExLjk1IEkwIEotMTIuMDUKRzEgWTEzLjA1CkcwIFo1Ck01CihPcGVyYXRpb246IERyaWxsIHRoZSBtb3VudGluZyBob2xlcykKVDMgTTYKTTMgUzQ1MDAKKEhvbGUgMSkKRzAgWDggWTgKRzAgWjEKRzEgWi0yIEYxODAKRzAgWjEKRzAgWi0xLjUKRzEgWi00IEYxODAKRzAgWjEKRzAgWi0zLjUKRzEgWi02IEYxODAKRzAgWjEKRzAgWi01LjUKRzEgWi04IEYxODAKRzAgWjEKRzAgWi03LjUKRzEgWi0xMC40IEYxODAKRzAgWjEKRzAgWjUKKEhvbGUgMikKRzAgWDY0IFk4CkcwIFoxCkcxIFotMiBGMTgwCkcwIFoxCkcwIFotMS41CkcxIFotNCBGMTgwCkcwIFoxCkcwIFotMy41CkcxIFotNiBGMTgwCkcwIFoxCkcwIFotNS41CkcxIFotOCBGMTgwCkcwIFoxCkcwIFotNy41CkcxIFotMTAuNCBGMTgwCkcwIFoxCkcwIFo1CihIb2xlIDMpCkcwIFg2NCBZNDAKRzAgWjEKRzEgWi0yIEYxODAKRzAgWjEKRzAgWi0xLjUKRzEgWi00IEYxODAKRzAgWjEKRzAgWi0zLjUKRzEgWi02IEYxODAKRzAgWjEKRzAgWi01LjUKRzEgWi04IEYxODAKRzAgWjEKRzAgWi03LjUKRzEgWi0xMC40IEYxODAKRzAgWjEKRzAgWjUKKEhvbGUgNCkKRzAgWDggWTQwCkcwIFoxCkcxIFotMiBGMTgwCkcwIFoxCkcwIFotMS41CkcxIFotNCBGMTgwCkcwIFoxCkcwIFotMy41CkcxIFotNiBGMTgwCkcwIFoxCkcwIFotNS41CkcxIFotOCBGMTgwCkcwIFoxCkcwIFotNy41CkcxIFotMTAuNCBGMTgwCkcwIFoxCkcwIFo1Ck01CihPcGVyYXRpb246IENoYW1mZXIgdGhlIG1vdW50aW5nIGhvbGVzKQpUNiBNNgpNMyBTNDUwMApHMCBYOCBZOApHMCBaMQpHMSBaLTIuNyBGMTgwCkcwIFo1CkcwIFg2NCBZOApHMCBaMQpHMSBaLTIuNwpHMCBaNQpHMCBYNjQgWTQwCkcwIFoxCkcxIFotMi43CkcwIFo1CkcwIFg4IFk0MApHMCBaMQpHMSBaLTIuNwpHMCBaNQpNNQpNMzAK</script>
 <script>/* Offline work-coordinate NC interpreter. No machine connection or file execution. */
 (function () {
   'use strict';
@@ -573,22 +574,30 @@
     _tool(c,point,toolNo) {
       const opt=this.tools instanceof Map?this.tools.get(toolNo):this.tools?.[toolNo];
       const d=Number(opt?.d??opt?.diameter??1.5),shape=String(opt?.shape||"flat").toLowerCase();
-      const rad=Math.max(.03,Math.abs(d)/2);
-      const length=Math.min(Math.max(44/this.scale,rad*2.6),Math.max(rad*6,90/this.scale));
       const [x,y,z]=point;
-      const centerZ=shape.includes("ball")?rad:shape.includes("drill")?rad*.6:0;
+      const chamfer=shape==="chamfer", tipRadius=chamfer?Number(opt.tip)/2:0;
+      if(chamfer && (!(d>0) || !(opt.angle>0 && opt.angle<180) || !(tipRadius>=0 && tipRadius<=d/2)))return;
+      const rad=chamfer?d/2:Math.max(.03,Math.abs(d)/2);
+      const shoulder=chamfer?(rad-tipRadius)/Math.tan(opt.angle*Math.PI/360):
+        shape.includes("ball")?rad:shape.includes("drill")?rad*.6:0;
+      const length=Math.max(shoulder+rad,Math.min(Math.max(44/this.scale,rad*2.6),Math.max(rad*6,90/this.scale)));
       // Rotate the circular tool through the view basis so the two side strokes are its silhouette.
       const w=this.u,t=toolColor(toolNo);
       const ring=(dz,r)=>Array.from({length:33},(_,i)=>{const a=i*Math.PI/16;return [x+r*Math.cos(a),y+r*Math.sin(a),z+dz];});
       c.lineWidth=1.2;const outline=[];
-      if(centerZ>0){for(let i=-16;i<=16;i++){
-        const v=i/16,dz=shape.includes("ball")?rad*(1-Math.sqrt(Math.max(0,1-v*v))):centerZ*Math.abs(v);
+      if(chamfer){
+        for(const [offset,height] of [[-rad,shoulder],[-tipRadius,0],[tipRadius,0],[rad,shoulder]]) {
+          outline.push([x+w[0]*offset,y+w[1]*offset,z+height]);
+        }
+      }else if(shoulder>0){for(let i=-16;i<=16;i++){
+        const v=i/16,dz=shape.includes("ball")?rad*(1-Math.sqrt(Math.max(0,1-v*v))):shoulder*Math.abs(v);
         outline.push([x+w[0]*v*rad,y+w[1]*v*rad,z+dz]);}}
       else outline.push([x-w[0]*rad,y-w[1]*rad,z],[x+w[0]*rad,y+w[1]*rad,z]);
       outline.push([x+w[0]*rad,y+w[1]*rad,z+length],[x-w[0]*rad,y-w[1]*rad,z+length]);
       this._poly(c,outline,"rgba(241,247,247,.16)","#e8f2f2");
       this._poly(c,ring(length,rad),"rgba(238,244,245,.28)","#eff5f6");
-      this._poly(c,ring(centerZ,rad),null,t);
+      this._poly(c,ring(shoulder,rad),null,t);
+      if(chamfer && tipRadius>0 && tipRadius<rad) this._poly(c,ring(0,tipRadius),null,t);
       const tip=this.project(point);c.fillStyle="#fff";c.strokeStyle="#17242a";c.lineWidth=1;c.beginPath();c.arc(...tip,2.1,0,2*Math.PI);c.fill();c.stroke();
     }
     _draw() {
@@ -739,7 +748,7 @@
     // Accumulate estimated air-feed time only for moves for which removal can
     // be simulated. Fixed intervals along a move keep results repeatable when
     // seeking; a lone long feed may enter and exit stock or a previously cut slot.
-    function advance(pixels, i, fraction = 1, measurement) {
+    function advance(pixels, i, fraction = 1, measurement, firstRemoval) {
       const tip = tools[tool[i]];
       if (kind[i] !== 1 || !spindle[i] || !tip || fraction <= 0) return 0;
       const dt = endTime[i] - (i ? endTime[i-1] : 0), p = i * 6;
@@ -767,6 +776,9 @@
           if (measurement && start >= sampleStart) measurement.recent += units;
         }
         if (measurement) measurement.move += units;
+        if (units && firstRemoval && firstRemoval.end === undefined) {
+          firstRemoval.start = start; firstRemoval.end = end;
+        }
         if (!units) {
           // Classify an incomplete interval the same way as the completed one
           // so the cumulative clock cannot run backward at first contact.
@@ -819,16 +831,49 @@
       return {cutter, removal:{totalMM3:totalUnits * unitVolume, moveMM3:units.move * unitVolume,
         recentMM3:units.recent * unitVolume, airFeedSeconds}};
     }
-    return {blank, sweep, advance, meta, cursorAt, inspectFrame};
+    return {blank, sweep, advance, meta, cursorAt, inspectFrame, hasTool:slot=>Boolean(tools[slot])};
   }
 
   function stockWorker(buildEngine, buildMesh) {
     let job, engine, stock, pixels, checkpoints, stride, built, mode, timer, request;
     let airSeconds, checkpointAir;
     let lastSolidDepths, meshError, removedError, removedVisible = false, hasRemovedMesh = false;
-    let key = 0, lastProgress = 0;
+    let key = 0, lastProgress = 0, lookup;
+    const firstCuts = new Map();
 
     function report() { self.postMessage({key, type:"progress", progress: job.count ? built / job.count : 1}); }
+    function resolveLookup() {
+      if (!lookup) return;
+      const {id,tool} = lookup;
+      if (!firstCuts.has(tool) && built < job.count && engine.hasTool(tool)) return;
+      lookup = null;
+      self.postMessage({key,type:"tool-cut",id,tool,cut:firstCuts.get(tool) || null});
+    }
+    function locate(i, range) {
+      // Restore stock immediately before this move, including work done by
+      // earlier tools. A first approach can traverse an already-cleared slot.
+      const checkpoint = Math.floor(i / stride);
+      const before = checkpoints[checkpoint].slice();
+      for (let j=checkpoint*stride; j<i; j++) engine.advance(before,j);
+      let lo=range.start, hi=range.end;
+      for(let j=0;j<24;j++){
+        const mid=(lo+hi)/2;
+        if(engine.sweep(before.slice(),i,mid)>0) hi=mid; else lo=mid;
+      }
+      const p=6*i, a=job.xyz, length=Math.hypot(a[p+3]-a[p],a[p+4]-a[p+1],a[p+5]-a[p+2]);
+      const grid=Math.max(engine.meta.sx,engine.meta.sy);
+      // Land inside the move, within one grid cell of initial removal. Its
+      // endpoint can already belong to the next tool or a rapid retract.
+      const start=i?job.endTime[i-1]:0, end=job.endTime[i];
+      for (const f of [Math.min(range.end,hi+(length?grid/length:0)),hi]) {
+        const t=Math.min(start+f*(end-start),end-Math.max(1,Math.abs(end))*Number.EPSILON);
+        const cursor=engine.cursorAt(t);
+        if(cursor.i!==i) continue;
+        const {cutter}=engine.inspectFrame(before.slice(),i,cursor.fraction);
+        if(cutter.state==="cutting") return {tool:cutter.tool,t,move:i,x:cutter.x,y:cutter.y,z:cutter.z};
+      }
+      return null;
+    }
     function display() {
       if (!request || !engine || !mode) return;
       const {i, fraction} = engine.cursorAt(request.t);
@@ -877,25 +922,35 @@
     }
     function pump() {
       timer = undefined;
-      if (!mode) return;
+      if (!mode && !lookup) return;
       display();
       const deadline = performance.now() + 16;
       while (built < job.count && performance.now() < deadline) {
         const stop = Math.min(built + 64, job.count);
         for (; built < stop;) {
-          airSeconds += engine.advance(pixels, built++);
+          const i=built, slot=job.tool[i];
+          const range=firstCuts.has(slot) || job.kind[i]!==1 || !job.spindle[i] || !engine.hasTool(slot) ? null : {};
+          airSeconds += engine.advance(pixels,i,1,null,range);
+          if(range?.end!==undefined){
+            const cut=locate(i,range);
+            if(cut) firstCuts.set(slot,cut);
+          }
+          built++;
           if (built % stride === 0) { checkpoints.push(pixels.slice()); checkpointAir.push(airSeconds); }
+          resolveLookup();
+          if (!mode && !lookup) return;
         }
       }
       const now = performance.now();
       if (built === job.count || now - lastProgress > 240) { report(); lastProgress = now; }
       display();
-      if (built < job.count) timer = setTimeout(pump, 0);
+      if (built < job.count && (mode || lookup)) timer = setTimeout(pump, 0);
     }
     self.onmessage = ({data}) => {
       if (data.type === "job") job = data.job;
       if (data.type === "configure") {
         clearTimeout(timer); timer = undefined; key = data.key;request = null;
+        firstCuts.clear(); lookup=null;
         stock = data.stock; lastSolidDepths = null; meshError = removedError = ""; hasRemovedMesh = false;
         engine = buildEngine(job, stock, data.tools);
         pixels = engine.blank(); checkpoints = [pixels.slice()];built = 0;
@@ -912,7 +967,9 @@
         removedVisible = data.visible; hasRemovedMesh = false; removedError = "";
       }
       if (data.type === "seek") request = {t:data.t};
-      if (engine && mode && timer === undefined) timer = setTimeout(pump, 0);
+      if(data.type==="find-cut" && data.key===key){lookup={id:data.id,tool:data.tool};resolveLookup();}
+      if(data.type==="cancel-find" && data.key===key && lookup?.id===data.id) lookup=null;
+      if (engine && (mode || lookup) && timer === undefined) timer = setTimeout(pump, 0);
     };
   }
   function NCCutMap(container, {onStatus, onFrame} = {}) {
@@ -929,6 +986,7 @@
     let imageTime = -1, textureValid = false, key = 0, error = "", solidError = "", removedError = "";
     let removedVisible = false;
     let lastDepths = null, solidFrame = null, lastStatus = "", sentTime = -1;
+    let lookup=null, nextLookup=0;
     let zoomFactor = 1, cx = 0, cy = 0, mode = "path", customCamera = false;
     let width = 0, height = 0, scale = 1, lastSeek = 0, frame;
     let cursorX, cursorY;
@@ -975,6 +1033,7 @@
       worker = new Worker(workerUrl);
       worker.onmessage = ({data}) => {
         if (data.key !== key) return;
+        if (data.type === "tool-cut") {finishLookup(data.id,data.cut); return;}
         if (data.type === "meta") {
           meta = data.meta;textureValid = false;
           if (!customCamera) fit(mode);
@@ -1000,13 +1059,14 @@
         schedulePaint();
       };
       worker.onerror = event => {
+        if(lookup) finishLookup(lookup.id,null);
         error = "Depth preview unavailable" + (event.message ? " · " + event.message : "");
         reportStatus();schedulePaint();
       };
     }
     function configure() {
       clearTimeout(configureTimer);configureTimer = undefined;
-      if (!job || !stock || !activeView || !configDirty) return;
+      if (!job || !stock || (!activeView && !lookup) || !configDirty) return;
       try {
         startWorker();
         if (sourceChanged) {
@@ -1024,12 +1084,35 @@
       }
     }
     function dirty() {
+      cancelLookup();
       key++;configDirty = true;textureValid = false;imageTime = -1;meta = undefined;progress = 0;
       lastDepths = null;solidFrame = null;solidError = removedError = "";error = "";sentTime = -1;
       if (onFrame) onFrame(null);
       reportStatus();
       clearTimeout(configureTimer);configureTimer = setTimeout(configure, 35);
       schedulePaint();
+    }
+    function finishLookup(id,cut) {
+      if(lookup?.id!==id) return;
+      const callback=lookup.callback;
+      lookup=null;
+      callback(cut);
+    }
+    function cancelLookup() {
+      if(!lookup) return;
+      worker?.postMessage({type:"cancel-find",id:lookup.id,key});
+      lookup=null;
+    }
+    function findToolCut(slot,callback) {
+      cancelLookup();
+      const tool=Number(slot), id=++nextLookup;
+      lookup={id,callback};
+      if(job?.tools.includes(tool) && Number(tools[tool]?.d)>0) {
+        if(configDirty) configure();
+        if(worker && !configDirty && !error) worker.postMessage({type:"find-cut",id,tool,key});
+        else setTimeout(()=>finishLookup(id,null),0);
+      } else setTimeout(()=>finishLookup(id,null),0);
+      return ()=>{if(lookup?.id===id)cancelLookup();};
     }
     function reportStatus() {
       if (!onStatus) return;
@@ -1196,8 +1279,9 @@
         } else if(worker)worker.postMessage({type:"active",active:false});
         reportStatus();
       },
-      fit,zoom,
+      fit,zoom,findToolCut,
       destroy() {
+        cancelLookup();
         observer.disconnect();clearTimeout(configureTimer);clearTimeout(seekTimer);cancelAnimationFrame(frame);
         if(worker)worker.terminate();if(workerUrl)URL.revokeObjectURL(workerUrl);canvas.remove();
       }
@@ -1769,7 +1853,9 @@ if (typeof module !== "undefined" && module.exports) module.exports = {buildSoli
     setCutterVisible(yes){if(this.showCutter!==!!yes){this.showCutter=!!yes;this.schedule();}}
     displayedCutter(frame){
       const c=frame?.cutter;
-      if(!this.showCutter||!c||!(c.d>0)||c.state==='complete'||![c.x,c.y,c.z].every(Number.isFinite))return null;
+      if(!this.showCutter||!c||!(c.d>0)||![c.x,c.y,c.z].every(Number.isFinite))return null;
+      if(this.requestedTool!=null && c.tool!==this.requestedTool)return null;
+      if(this.waitExact && Math.abs(frame.t-this.requested)>1e-5)return null;
       const key=JSON.stringify([c.d,c.shape,c.angle,c.tip]);
       if(key!==this.toolShapeKey){
         this.toolShape=globalThis.buildCutterMesh?.(c);
@@ -1781,10 +1867,18 @@ if (typeof module !== "undefined" && module.exports) module.exports = {buildSoli
     }
     setMeta(meta){this.meta=meta;this.schedule();}
     setStatus(message){const next=String(message||'');if(next===this.notice)return;this.notice=next;this.updateHud();}
-    setTime(time){const previous=this.requested;this.requested=Math.max(0,Number(time)||0);
-      if(this.requested===0||previous===0)this.schedule();else if(this.active)this.updateHud();}
+    setTime(time,tool,playing=false){const previous=this.requested,priorTool=this.requestedTool;this.requested=Math.max(0,Number(time)||0);
+      this.requestedTool=tool;this.waitExact=!playing;
+      if(!playing||priorTool!==tool||this.requested===0||previous===0)this.schedule();else if(this.active)this.updateHud();}
     setActive(yes){this.active=!!yes;if(this.active)this.schedule();}
     fit(mode){this.mode=mode==='stock'?'stock':'path';this.focus=null;this.factor=1;this.pan=[0,0];this.fitAxes=basis(this.yaw,this.elevation);this.schedule();}
+    focusCutter(c){
+      const mesh=globalThis.buildCutterMesh?.(c);if(!mesh)return;
+      const halfWidth=Math.max(c.d*2.5,mesh.bounds.max[2]*.55);
+      this.elevation=.45;this.factor=1;this.pan=[0,0];this.fitAxes=basis(this.yaw,this.elevation);
+      this.focus=[c.x-halfWidth,c.y-halfWidth,c.z-c.d,c.x+halfWidth,c.y+halfWidth,c.z+mesh.bounds.max[2]+c.d*.3];
+      this.schedule();
+    }
     zoom(factor,px=0,py=0){
       if(!Number.isFinite(factor)||factor<=0)return;
       const f=clamp(this.factor*factor,.035,100),r=f/this.factor;
@@ -2057,6 +2151,7 @@ if (typeof module !== "undefined" && module.exports) module.exports = {buildSoli
   const flags={rapid:true,future:true,stock:true,grid:true,markers:true,tool:true};
   const flagNames={rapid:'Rapids',future:'Future paths',stock:'Stock',grid:'Grid',markers:'Entry markers',tool:'Cutter'};
   let job=null, source='', ticket=0, playing=false, lastTick=0, time=0, view='solid', seq=[], stageNodes=[], contact=null, entry=null, stageId=-1, stock={}, cutTools={}, dragCount=0, loadState=false;
+  let stockFrame=null, activeSlot=null, stopLookup=null, lookupId=0, inspectedTime=null;
   const sourceList=NCSourceList({viewport:by('linecode'),input:by('source-line'),go:by('source-go'),note:by('source-note'),
     onSeek:(seconds,line)=>{pause();seek(seconds,line);}});
   function notice(title,msg) { by('msgtitle').textContent=title; by('msgtext').textContent=msg; by('msg').showModal(); }
@@ -2070,8 +2165,9 @@ if (typeof module !== "undefined" && module.exports) module.exports = {buildSoli
   const hasSolid=Boolean(solid && solid.available!==false);
   const cut=new NCCutMap(by('depth-surface'),{
     onFrame:frame=>{
+      stockFrame=frame;
       if(hasSolid)solid.setFrame(frame);
-      updateMaterialReadout(frame);
+      updateMaterialReadout();
     },
     onStatus:message=>{if(hasSolid)solid.setStatus(message);}
   });
@@ -2079,14 +2175,20 @@ if (typeof module !== "undefined" && module.exports) module.exports = {buildSoli
     cutting:'Cutting material',air:'Feeding in air',rapid:'Rapid travel',dwell:'Dwell',
     'spindle-off':'Spindle off',unknown:'Tool size unknown',ready:'Ready',complete:'Finished'
   };
-  function updateMaterialReadout(frame){
+  function toolName(slot){
+    const def=cutTools[slot], name=slot?'T'+slot:'Unnumbered tool';
+    const shape=def?.d>0 || def?.shape==='chamfer' ? {flat:'Flat end mill',ball:'Ball nose',drill:'Twist drill',chamfer:'Chamfer mill'}[def.shape] : '';
+    return shape?name+' '+shape:name;
+  }
+  function updateMaterialReadout(){
+    const frame=stockFrame, t=frame?.t;
+    const current=activeSlot!==null && frame?.cutter?.tool===activeSlot && (playing || Math.abs(t-time)<1e-5);
     const state=frame?.cutter?.state;
-    const tool=frame?.cutter?.tool;
     const engagement=by('solid-engagement');
-    engagement.dataset.state=state||'';
-    engagement.textContent=(tool?'T'+tool+' · ':'')+(engagementLabels[state]||'');
-    const volume=frame?.removal?.totalMM3;
-    const air=frame?.removal?.airFeedSeconds;
+    engagement.dataset.state=current?state:'';
+    engagement.textContent=activeSlot===null?'':toolName(activeSlot)+' · '+(current?engagementLabels[state]:'Updating stock');
+    const volume=current?frame.removal?.totalMM3:null;
+    const air=current?frame.removal?.airFeedSeconds:null;
     by('solid-removed-volume').textContent=Number.isFinite(volume)?volume.toLocaleString(undefined,{maximumFractionDigits:1})+' mm³':'—';
     by('solid-air-time').textContent=Number.isFinite(air)?clock(air):'—';
   }
@@ -2102,7 +2204,7 @@ if (typeof module !== "undefined" && module.exports) module.exports = {buildSoli
   on('show-cutter','change',updateLayers);
   updateLayers();
   function updateViewTime(){
-    if(view==='solid')solid.setTime(time);
+    if(view==='solid')solid.setTime(time,activeSlot,playing);
     if(view==='path')path.setTime(time);
     else cut.setTime(time);
   }
@@ -2116,6 +2218,7 @@ if (typeof module !== "undefined" && module.exports) module.exports = {buildSoli
     by('dia-'+missing[0]).focus();
   }
   function setView(name) {
+    if(stopLookup)cancelToolLookup();
     if(name!=='path' && entry && !hasSizedTool()){
       configureMissingTools();
       return;
@@ -2144,7 +2247,66 @@ if (typeof module !== "undefined" && module.exports) module.exports = {buildSoli
   function startSec(i){return i>0?job.endTime[i-1]:0;}
   function point(i,f){const p=6*i;return [0,1,2].map(k=>job.xyz[p+k]+(job.xyz[p+k+3]-job.xyz[p+k])*f);}
   function toolData(j){const t=j.tool;return j.tools.length?j.tools:(t.length?[t[0]]:[]);}
+  function cancelToolLookup(){
+    lookupId++;stopLookup?.();stopLookup=null;inspectedTime=null;
+    by('tool-result').textContent='';by('show-tool-cut').disabled=by('inspect-tool').disabled;
+  }
+  function drawToolProfile(def){
+    const canvas=by('tool-profile'),ctx=canvas.getContext?.('2d');
+    if(!ctx)return;
+    const w=canvas.width,h=canvas.height;ctx.clearRect(0,0,w,h);
+    const mesh=globalThis.buildCutterMesh?.(def);
+    if(!mesh)return;
+    // Draw the side silhouette of the same tip envelope used by the 3D renderer.
+    const radii=new Map(),r=def.d/2;
+    for(let i=0;i<mesh.positions.length;i+=3){
+      const p=mesh.positions,z=p[i+2];radii.set(z,Math.max(radii.get(z)||0,Math.hypot(p[i],p[i+1])));
+    }
+    const rings=Array.from(radii).sort((a,b)=>a[0]-b[0]);
+    const shoulder=rings.find(v=>v[1]>=r*(1-1e-5))?.[0]??0;
+    const top=shoulder+1.3*r,profile=rings.filter(v=>v[0]<top);profile.push([top,r]);
+    const scale=Math.min((w-22)/def.d,(h-12)/top),x=w/2,y=h-6;
+    ctx.beginPath();ctx.moveTo(x-r*scale,y-top*scale);
+    for(let i=profile.length-1;i>=0;i--)ctx.lineTo(x-profile[i][1]*scale,y-profile[i][0]*scale);
+    for(const [z,radius] of profile)ctx.lineTo(x+radius*scale,y-z*scale);
+    ctx.closePath();ctx.fillStyle='#598d92';ctx.fill();ctx.strokeStyle='#c7f3e7';ctx.lineWidth=1.5;ctx.stroke();
+  }
+  function showProfile(slot){
+    const def=cutTools[slot];by('inspect-tool').value=String(slot);
+    const details=def?.d>0?['Ø'+def.d+' mm']:['Cutter dimensions needed'];
+    if(def?.shape==='chamfer' && def.d>0)details.push(def.angle+'° included','Ø'+def.tip+' mm tip');
+    if(def?.shape==='drill' && def.d>0)details.push('118° included');
+    by('tool-dimensions').textContent=details.join(' · ');
+    by('show-tool-cut').textContent=def?.d>0?'Show cut':'Set dimensions';
+    drawToolProfile(def);
+  }
+  function setToolInspector(){
+    cancelToolLookup();
+    const selector=by('inspect-tool'),slots=toolData(job);
+    selector.replaceChildren(...slots.map(n=>option(toolName(n),n)));
+    selector.disabled=by('show-tool-cut').disabled=!slots.length;by('tool-inspector').hidden=!slots.length;
+    if(slots.length)showProfile(slots.includes(activeSlot)?activeSlot:slots[0]);
+  }
+  function inspectCut(){
+    if(!job?.count)return;
+    pause();cancelToolLookup();
+    const slot=Number(by('inspect-tool').value),def=cutTools[slot];
+    if(!(def?.d>0)){setTab(true);by('dia-'+slot).focus();return;}
+    const id=lookupId;
+    by('show-tool-cut').disabled=true;
+    by('tool-result').textContent='Finding material removed by '+toolName(slot)+'…';
+    stopLookup=cut.findToolCut(slot,result=>{
+      if(id!==lookupId)return;
+      stopLookup=null;by('show-tool-cut').disabled=false;
+      if(!result){by('tool-result').textContent='No sampled material removal for '+toolName(slot)+' with this stock and cutter.';return;}
+      showCutter.checked=true;updateLayers();
+      seek(result.t);setView('solid');inspectedTime=result.t;
+      if(hasSolid)solid.focusCutter({...def,x:result.x,y:result.y,z:result.z});
+      by('tool-result').textContent='Cutting on line '+job.line[result.move].toLocaleString()+' at '+clock(result.t)+'.';
+    });
+  }
   function seek(value,chosenLine) {
+    if(stopLookup || (inspectedTime!==null && value!==inspectedTime))cancelToolLookup();
     if(!job?.count){
       time=0;by('progress').value='0';by('progress').setAttribute('aria-valuetext','No motions');
       by('rail').style.setProperty('--done','0%');by('elapsed').textContent='00:00';
@@ -2156,6 +2318,8 @@ if (typeof module !== "undefined" && module.exports) module.exports = {buildSoli
     by('progress').value=String(Math.round(ratio*1000000));by('rail').style.setProperty('--done',(100*ratio)+'%');by('progress').setAttribute('aria-valuetext',clock(time)+' of '+clock(job.duration));by('elapsed').textContent=clock(time);
     for(let k=0;k<3;k++)by(['px','py','pz'][k]).textContent=fmt(p[k]);
     const t=job.tool[i],mode=['Rapid','Feed','Dwell'][job.kind[i]]||'Move';
+    if(activeSlot!==t || Number(by('inspect-tool').value)!==t){activeSlot=t;if(cutTools[t])showProfile(t);}
+    updateMaterialReadout();
     by('view-state').textContent=(t?'T'+t:'Tool ?')+' · '+mode;by('tool-dot').style.background=job.kind[i]===0?'#b5c3d2':color(t);
     by('motion-data').textContent=(t?'T'+t:'Unknown tool')+'  ·  '+mode+(job.kind[i]===1?'  '+job.feed[i].toFixed(0)+' mm/min':'')+'  ·  '+(job.spindle[i]?'Spindle on':'Spindle off');
     by('lineinfo').textContent='Line '+job.line[i].toLocaleString()+' / '+sourceList.count.toLocaleString();
@@ -2259,6 +2423,7 @@ if (typeof module !== "undefined" && module.exports) module.exports = {buildSoli
     }
   }
   function controls(){const conf=stockFor(source);stock=conf.v;cutTools=toolsFor(source);
+    setToolInspector();
     for(const k of stockKeys)by('stock-'+k).value=String(stock[k]);by('stock-hint').textContent=conf.hint;
     setToolFields();
     by('setup-msg').textContent='Enter the cutting diameter for each tool. A diameter of zero omits its cut from the stock simulation. Drills use a 118° included angle.';
@@ -2285,6 +2450,7 @@ if (typeof module !== "undefined" && module.exports) module.exports = {buildSoli
     }
     const previouslySized=hasSizedTool();
     stock=next;cutTools=nt;path.setStock(stock);path.setTools(nt);
+    setToolInspector();
     if(hasSolid)solid.setStock(stock);
     cut.setStock(stock);cut.setTools(nt);updateMarkers();
     by('configure-tools').hidden=Object.values(nt).every(tool=>tool.d>0);
@@ -2343,6 +2509,7 @@ if (typeof module !== "undefined" && module.exports) module.exports = {buildSoli
     const rapid=el('span','keyitem');const dot=el('i','dot');dot.style.background='#a7bacd';rapid.append(dot,document.createTextNode('Rapid'));key.append(rapid);
   }
   function openJob(text,name,parsed,isDemo){
+    cancelToolLookup();activeSlot=null;stockFrame=null;
     job=parsed;source=text;sourceList.setJob(text,job);
     by('filename').textContent=isDemo?'Arc pocket plate · demo.nc':name;by('filename').title=name;document.title=name+' · Pathscope';by('duration').textContent=clock(job.duration);
     const warnings=by('warnings');warnings.hidden=!job.warnings.length;warnings.open=!!job.warnings.length;
@@ -2381,6 +2548,7 @@ if (typeof module !== "undefined" && module.exports) module.exports = {buildSoli
   }
   async function load(loader,name,isDemo=false){
     const id=++ticket;
+    cancelToolLookup();
     if(cancelParse){cancelParse();cancelParse=null;}
     pause();loadState=true;busy('Reading '+name+'…');
     try{
@@ -2401,6 +2569,8 @@ if (typeof module !== "undefined" && module.exports) module.exports = {buildSoli
     },'demo.nc',true);
   }
   function loadFile(f){if(f)load(()=>f.text(),f.name);}
+  on('inspect-tool','change',()=>{pause();cancelToolLookup();showProfile(Number(by('inspect-tool').value));});
+  on('show-tool-cut','click',inspectCut);
   makeFields(); on('close-msg','click',()=>by('msg').close());on('open-btn','click',()=>by('file').click());on('file','change',e=>{loadFile(e.target.files[0]);e.target.value='';});on('demo-btn','click',sample);on('job-tab','click',()=>setTab(false));on('setup-tab','click',()=>setTab(true));on('configure-tools','click',configureMissingTools);
   on('play','click',play);on('prev-step','click',()=>step(false));on('next-step','click',()=>step(true));on('progress','input',()=>{if(job)jump(job.duration*Number(by('progress').value)/1000000);});on('apply','click',applyConfig);
   function jumpInView(target,seconds){jump(seconds);if(view!==target)setView(target);}

@@ -20,7 +20,7 @@ function by(id){assert(elements.has(id),id);return elements.get(id)}
 const views=['solid','path','depth'].map(v=>{const b=new Node('button');b.dataset.view=v;return b;});
 const doc={getElementById:by,querySelectorAll:()=>views,querySelector:()=>pScript,createElement:t=>new Node(t),createTextNode:s=>new Node('text','',s),addEventListener:()=>{}};
 let materialCallbacks;
-function stubAPI(list){return class {constructor(element,callbacks){if(list===cutClicks)materialCallbacks=callbacks;return new Proxy({}, {get:(o,name)=>name==='available'?!process.argv.includes('--no-solid'):(...args)=>{list.push([name,...args]);if(name==='setJob'&&list===pathClicks)loaded.push(args[0]);}});}}}
+function stubAPI(list){return class {constructor(element,callbacks){if(list===cutClicks)materialCallbacks=callbacks;return new Proxy({}, {get:(o,name)=>name==='available'?!process.argv.includes('--no-solid'):(...args)=>{list.push([name,...args]);if(name==='setJob'&&list===pathClicks)loaded.push(args[0]);if(name==='findToolCut')return ()=>list.push(['cancelFind']);}});}}}
 const fixture={document:doc,window:null,URL,Blob,Response,Worker:undefined,TextDecoder,setTimeout,clearTimeout,console,atob,structuredClone,performance,requestAnimationFrame:f=>setTimeout(()=>f(performance.now()),8),Option:class extends Node{constructor(name,value){super('option','',name);this.value=value}},NCRenderer:stubAPI(pathClicks),NCCutMap:stubAPI(cutClicks),addEventListener:()=>{}};
 fixture.NCSolidRenderer=stubAPI(solidClicks);
 fixture.window=fixture;const cx=vm.createContext(fixture); vm.runInContext(parser,cx);
@@ -32,8 +32,8 @@ const wait=async pred=>{for(let i=0;i<150;i++){await new Promise(r=>setTimeout(r
 (async()=>{
  await wait(()=>by('filename').textContent.includes('demo.nc'));
  assert(by('busy').hidden);
- assert.deepEqual(loaded[0].tools,[1,2,3]);
- assert.equal(by('operations').children.length,4);
+ assert.deepEqual(loaded[0].tools,[1,2,3,6]);
+ assert.equal(by('operations').children.length,5);
  assert.equal(by('hole-select').children.length,5);
  assert.equal(by('stock-l').value,'72');
  assert.equal(by('dia-1').value,'6');
@@ -48,14 +48,29 @@ const wait=async pred=>{for(let i=0;i<150;i++){await new Promise(r=>setTimeout(r
    for(const calls of [solidClicks,cutClicks])assert.deepEqual(calls.filter(c=>c[0]==='setRemovedVisible').at(-1),['setRemovedVisible',false]);
    by('show-cutter').checked=false;ev('show-cutter','change');
    assert.deepEqual(solidClicks.filter(c=>c[0]==='setCutterVisible').at(-1),['setCutterVisible',false]);
-   materialCallbacks.onFrame({cutter:{tool:2,state:'air'},removal:{totalMM3:55,airFeedSeconds:90}});
-   assert.equal(by('solid-engagement').textContent,'T2 · Feeding in air');
+   materialCallbacks.onFrame({t:loaded[0].duration,cutter:{tool:6,state:'complete'},removal:{totalMM3:55,airFeedSeconds:90}});
+   assert.equal(by('solid-engagement').textContent,'T6 Chamfer mill · Finished');
    assert.equal(by('solid-removed-volume').textContent,'55 mm³');
    assert.equal(by('solid-air-time').textContent,'01:30');
+   materialCallbacks.onFrame({t:0,cutter:{tool:1,state:'cutting'},removal:{totalMM3:11,airFeedSeconds:6}});
+   assert.equal(by('solid-engagement').textContent,'T6 Chamfer mill · Updating stock');
    materialCallbacks.onFrame(null);
    assert.equal(by('solid-removed-volume').textContent,'—');
  }
  assert.equal(by(solidAvailable?'solid-surface':'depth-surface').hidden,false);
+ const demoJob=loaded[0],cutMove=demoJob.tool.findIndex((slot,i)=>slot===6 && demoJob.kind[i]===1);
+ const cuttingTime=(demoJob.endTime[cutMove-1]+demoJob.endTime[cutMove])/2;
+ assert.equal(by('inspect-tool').value,'6');assert.match(by('tool-dimensions').textContent,/90° included/);
+ by('show-tool-cut').click();const stale=cutClicks.filter(c=>c[0]==='findToolCut').at(-1);
+ by('inspect-tool').value='2';ev('inspect-tool','change');assert(cutClicks.some(c=>c[0]==='cancelFind'));
+ stale[2]({tool:6,t:cuttingTime,move:cutMove,x:8,y:8,z:-2});assert.equal(by('progress').value,'1000000','canceled lookup must not seek');
+ by('inspect-tool').value='6';ev('inspect-tool','change');by('show-tool-cut').click();
+ const lookup=cutClicks.filter(c=>c[0]==='findToolCut').at(-1);assert.equal(lookup[1],6);lookup[2]({tool:6,t:cuttingTime,move:cutMove,x:8,y:8,z:-2});
+ assert.match(by('tool-result').textContent,/Cutting on line/);assert(by('show-cutter').checked);
+ assert.equal(by('play-text').textContent,'Play');assert.equal(by(solidAvailable?'solid-surface':'depth-surface').hidden,false);
+ if(solidAvailable){const focus=solidClicks.filter(c=>c[0]==='focusCutter').at(-1)[1];assert.equal(focus.shape,'chamfer');assert.equal(focus.x,8);}
+ by('show-tool-cut').click();cutClicks.filter(c=>c[0]==='findToolCut').at(-1)[2](null);
+ assert.match(by('tool-result').textContent,/No sampled material removal/);
  by('progress').value='420000';
  ev('progress','input');
  const position=(solidAvailable?solidClicks:cutClicks).filter(v=>v[0]==='setTime').at(-1)[1];
